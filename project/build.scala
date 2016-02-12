@@ -1,12 +1,11 @@
 package tryp
 
-import sbt._
-import Keys._
+import sbt._, Keys._
 
-object MiExamProject
-extends MultiBuild("mi-exam", deps = MiDeps)
+object Build
+extends MultiBuild("mi_exam", deps = MiDeps)
 {
-  lazy val core = "core" / "core"
+  lazy val core = tdp("core")
 
   lazy val unit = "unit" << core
 }
