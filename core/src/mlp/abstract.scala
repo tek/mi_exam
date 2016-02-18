@@ -7,24 +7,10 @@ import poly._
 import spire.math._
 import spire.algebra.{AdditiveMonoid, MultiplicativeGroup}
 import spire.implicits._
+import spire.random._
 
 import breeze.math._
-import breeze.linalg.DenseVector
-
-trait Transfer
-extends Poly1
-{
-  // def simple[A]: A ⇒ A
-
-  implicit def caseNum[A: Numeric] = at[A](x ⇒ 1)
-}
-
-class Logistic[A: Numeric](beta: A)
-extends Transfer
-{
-}
-
-object Logistic
+import breeze.linalg.{DenseVector, DenseMatrix, Transpose}
 
 trait Node
 
@@ -59,26 +45,6 @@ extends Neuron[A]
   }
 }
 
-object CN
-{
-  def randomInputs(num: Long) = {
-    for(_ ← 1L to num) yield I(Random.double())
-  }
-
-  def weights(num: Long) = {
-    val w = 1.0 / num
-    for(_ ← 1L to num) yield Weight(w)
-  }
-
-  def default = {
-    val num = 256
-    val x = randomInputs(num).toList
-    CN[Double, DenseVector[Double]](x, weights(num).toList)
-  }
-
-  def run() = {
-    p(classOf[Numeric[Double]])
-    val cn = default
-    p(cn.output)
-  }
-}
+case class Layer[A: Numeric: AdditiveMonoid: MultiplicativeGroup, B]
+(nodes: List[CN[A, B]])
+(implicit vs: VectorSpace[B, A])
