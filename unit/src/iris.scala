@@ -13,19 +13,19 @@ import breeze.linalg.{DenseVector, DenseMatrix, Transpose}
 import spire.implicits._
 
 case class Iris(feature: Col, name: String)
-extends TrainData
 {
   lazy val cls = name
 
-  lazy val target: Double = Iris.targets.get(name).getOrElse(-1.0)
+  lazy val value: Double = Iris.values.get(name).getOrElse(-1.0)
 }
 
 object Iris
+extends IrisInstances
 {
-  val targets = Map(
-    "setosa" → 0.0,
-    "versicolor" → 0.5,
-    "virginica" → 1.0
+  val values = Map(
+    "setosa" → 0.3,
+    "versicolor" → 0.6,
+    "virginica" → 0.9
   )
 
   lazy val parser: Parser[Iris] = {
@@ -54,4 +54,13 @@ object Iris
       case _ => sys.error("no data")
     }
   }
+}
+
+trait IrisInstances
+{
+  implicit lazy val irisSample: Sample[Iris] =
+    new Sample[Iris] {
+      def feature(a: Iris) = a.feature
+      def value(a: Iris) = a.value
+    }
 }
