@@ -103,22 +103,27 @@ extends WeightInitializer
 
 case class TrainConf
 (transfer: DFunc[_ <: Func], eta: Double, layers: Nel[Int], steps: Int,
-  initializer: WeightInitializer, cost: DFunc2[_ <: Func2])
+  initializer: WeightInitializer, cost: DFunc2[_ <: Func2], bias: Boolean)
 
-case class MLPPredictor
-(transfer: DFunc[_ <: Func])
+case class MLPPredictor(config: TrainConf)
 extends Predictor[Weights, PState]
 {
+  def transfer = config.transfer
+
+  def input[A: Sample](sample: A) = {
+    if (config.bias) Col.vertcat(Col(1d), sample.feature)
+    else sample.feature
+  }
+
   def layer(state: PState, w: Mat) = {
     val in = w * state.layers.last.out
     val out = transfer.f(in)
     state.addLayer(in, out)
   }
 
-  // TODO add bias node
   def apply[A: Sample](sample: A, weights: Weights)
   : Prediction[A, Weights, PState] = {
-    val z = PState.init(sample.feature, transfer.deriv)
+    val z = PState.init(input(sample), transfer.deriv)
     Prediction(sample, weights, weights.foldLeft(z)(layer))
   }
 }
@@ -162,11 +167,13 @@ case class MLPTrainer[A: Sample]
 (data: Nel[A], config: TrainConf)
 extends Trainer[Weights]
 {
-  lazy val predict = MLPPredictor(config.transfer)
+  lazy val predict = MLPPredictor(config)
 
   lazy val optimize = BackProp(config.transfer, config.cost)
 
-  val featureCount = data.head.feature.length
+  val featureCount = {
+    data.head.feature.length + (if (config.bias) 1 else 0)
+  }
 
   lazy val initialParams = config.initializer(featureCount, config.layers, 1)
 
@@ -184,21 +191,25 @@ extends Trainer[Weights]
 case class MLPValidation[A](data: A, pred: PState)(implicit sample: Sample[A])
 extends SampleValidation[A, PState]
 {
-  def success = {
-    val predValue = pred.output
-    val cls = sample.predictedClass(predValue)
-    if (data.cls == cls) s"correct class"
-    else s"wrong class: $cls ($predValue)"
+  lazy val predictedValue = pred.output
+
+  lazy val predictedClass = sample.predictedClass(predictedValue)
+
+  def success = data.cls == predictedClass
+
+  def successInfo = {
+    if (success) s"correct class"
+    else s"wrong class: $predictedClass ($predictedValue)"
   }
 
-  def result = s"${data.cls} (${data.feature.data.mkString(", ")}): $success"
+  def info = s"${data.cls} (${data.feature.data.mkString(", ")}): $successInfo"
 }
 
 case class MLPValidator[A: Sample]
 (data: Nel[A], config: TrainConf)
 extends Validator[A, Weights, PState]
 {
-  lazy val predict = MLPPredictor(config.transfer)
+  lazy val predict = MLPPredictor(config)
 
   def verify(weights: Weights)(sample: A): SampleValidation[A, PState] = {
     val pred = predict(sample, weights)

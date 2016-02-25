@@ -5,12 +5,17 @@ import cats._
 
 case class CrossValidator[A: Sample, B, O](n: Int, data: Nel[A],
   trainer: Nel[A] => Trainer[B], validator: Nel[A] => Validator[A, B, O],
-  stop: StopCriterion[B])
+  stop: StopCriterion[B], trials: Option[Int])
 {
   val l = data.unwrap
 
+  def intervals = {
+    val all = 0 until l.length by n
+    trials map(all.take) getOrElse(all)
+  }
+
   def run = {
-    0 until l.length by n map { start =>
+    intervals map { start =>
       oneRange(start, start + n)
     }
   }

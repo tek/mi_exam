@@ -5,7 +5,8 @@ trait SampleValidation[A, O]
 {
   val data: A
   val pred: O
-  def result: String
+  def success: Boolean
+  def info: String
 }
 
 case class Validation[A, O](data: Nel[SampleValidation[A, O]])

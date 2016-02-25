@@ -37,6 +37,8 @@ extends Spec
 
   val conf: TrainConf
 
+  def bias = false
+
   lazy val train = MLPTrainer(Nel(sample), conf)
 
   val costFun = QuadraticError
@@ -93,7 +95,8 @@ extends InternalBase
       DenseMatrix.create(1, 3, Array(1d, 0d, 0d))
     ))
 
-  lazy val conf = TrainConf(transfer, eta, layers, steps, weights, costFun)
+  lazy val conf =
+    TrainConf(transfer, eta, layers, steps, weights, costFun, bias)
 
   def input = {
     forward.in must_== Nel(Col(x0, 0d), Col(h1_0, 0d, 0d), Col(h1_0))
@@ -169,7 +172,7 @@ extends InternalBase
       DenseMatrix.create(1, 3, Array(1d, 0d, 0d))
     ))
 
-  lazy val conf = TrainConf(tr, eta, layers, steps, weights, costFun)
+  lazy val conf = TrainConf(tr, eta, layers, steps, weights, costFun, bias)
 
   lazy val sample = Dat(DenseVector(x0, 0d), 1d)
 
@@ -207,38 +210,47 @@ extends Spec
   main $main
   """
 
-  val layers = Nel(7)
+  val layers = Nel(5, 4)
 
-  val steps = 1000
+  val steps = 10000
 
-  val epsilon = 0.0001
+  val epsilon = 0.00001
 
-  def beta = 3
+  def beta = 0.8
 
-  def eta = 0.5
+  def eta = 0.25
+
+  def bias = true
+
+  def trials = None
 
   lazy val transfer = new Logistic(beta)
 
   val cost = QuadraticError
 
   implicit lazy val conf =
-    TrainConf(transfer, eta, layers, steps, RandomWeights, cost)
+    TrainConf(transfer, eta, layers, steps, RandomWeights, cost, bias)
 
   val stop = ConvergenceStopCriterion(steps, epsilon)
 
   lazy val valid = CrossValidator[Iris, Weights, PState](
-    5, Iris.loadNel, MLPTrainer[Iris](_, conf), MLPValidator[Iris](_, conf),
-    stop)
+    25, Iris.loadNel, MLPTrainer[Iris](_, conf), MLPValidator[Iris](_, conf),
+    stop, trials)
 
   def main = {
-    valid.run.foreach {
-      case Xor.Left(err) => p(err)
+    val results = valid.run.flatMap {
+      case Xor.Left(err) =>
+        p(err)
+        List(false)
       case Xor.Right((TrainResult(iter, _), Validation(data))) =>
         hl
         if (iter == steps) p("training hasn't converged")
         else p(s"training converged after $iter iterations")
-        data.unwrap.map(_.result).foreach(p(_))
+        data.unwrap.map { res =>
+          p(res.info)
+          res.success
+        }
     }
-    1 === 1
+    results must not contain(false)
   }
 }
