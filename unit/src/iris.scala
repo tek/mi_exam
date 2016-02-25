@@ -13,11 +13,6 @@ import breeze.linalg.{DenseVector, DenseMatrix, Transpose}
 import spire.implicits._
 
 case class Iris(feature: Col, name: String)
-{
-  lazy val cls = name
-
-  lazy val value: Double = Iris.values.get(name).getOrElse(-1.0)
-}
 
 object Iris
 extends IrisInstances
@@ -49,7 +44,7 @@ extends IrisInstances
   }
 
   def loadNel = {
-    load match {
+    util.Random.shuffle(load) match {
       case Vector(head, tail @ _*) => Nel(head, tail: _*)
       case _ => sys.error("no data")
     }
@@ -60,7 +55,14 @@ trait IrisInstances
 {
   implicit lazy val irisSample: Sample[Iris] =
     new Sample[Iris] {
+      def cls(a: Iris) = LabeledClass(a.name)
+
+      lazy val classes = Iris.values map {
+        case (n, v) => v -> LabeledClass(n)
+      }
+
       def feature(a: Iris) = a.feature
-      def value(a: Iris) = a.value
+
+      def value(a: Iris) = Iris.values.get(a.name).getOrElse(-1.0)
     }
 }

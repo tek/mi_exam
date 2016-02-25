@@ -83,6 +83,19 @@ extends DFunc[Const]
 object Identity
 extends Linear(0d, 1d)
 
+trait PseudoIdentity
+extends DFunc[PseudoIdentity]
+{
+  implicit val doubleImpl: DI = new DI {
+    def apply(a: Double) = a
+  }
+
+  lazy val deriv = this
+}
+
+object PseudoIdentity
+extends PseudoIdentity
+
 object Diff
 extends DFunc2[NullFuncBase]
 {

@@ -3,7 +3,7 @@ package mi
 package mlp
 package unit
 
-import cats._, data.{Func => _, _}, syntax.all._, std.all._
+import cats._, data.{Func => _, _}
 
 import spire.math._
 import spire.algebra._
@@ -21,7 +21,14 @@ extends Spec
   {
     implicit val datSample: Sample[Dat] =
       new Sample[Dat] {
+        val name = "default"
+
+        def cls(a: Dat) = LabeledClass(name)
+
+        lazy val classes = Map(1.0 -> LabeledClass(name))
+
         def feature(a: Dat) = a.feature
+
         def value(a: Dat) = a.value
       }
   }
@@ -30,7 +37,7 @@ extends Spec
 
   val conf: TrainConf
 
-  lazy val train = MLPTrain(Nel(sample), conf)
+  lazy val train = MLPTrainer(Nel(sample), conf)
 
   val costFun = QuadraticError
 
@@ -50,19 +57,6 @@ extends Spec
 
   lazy val costError = costFun.deriv.f(pred.sample.value, forward.output)
 }
-
-trait PseudoIdentity
-extends DFunc[PseudoIdentity]
-{
-  implicit val doubleImpl: DI = new DI {
-    def apply(a: Double) = a
-  }
-
-  lazy val deriv = this
-}
-
-object PseudoIdentity
-extends PseudoIdentity
 
 class InternalTrivialSpec
 extends InternalBase
@@ -206,39 +200,45 @@ extends InternalBase
   }
 }
 
-class BasicSpec
+class IrisSpec
 extends Spec
 {
   def is = s2"""
   main $main
   """
 
-  val layers = Nel(7, 5, 3)
+  val layers = Nel(7)
 
   val steps = 1000
 
-  def beta = 2.0
+  val epsilon = 0.0001
 
-  def eta = 1.0
+  def beta = 3
+
+  def eta = 0.5
 
   lazy val transfer = new Logistic(beta)
 
+  val cost = QuadraticError
+
   implicit lazy val conf =
-    TrainConf(transfer, beta, eta, layers, steps, RandomWeights)
+    TrainConf(transfer, eta, layers, steps, RandomWeights, cost)
+
+  val stop = ConvergenceStopCriterion(steps, epsilon)
+
+  lazy val valid = CrossValidator[Iris, Weights, PState](
+    5, Iris.loadNel, MLPTrainer[Iris](_, conf), MLPValidator[Iris](_, conf),
+    stop)
 
   def main = {
-    val d = Iris.loadNel
-    val t = Train(d)
-    val w = t.run
-    val test = d.tail(51)
-    val pt = PointTrain(test)
-    pr(test)
-    val testClass = pt.forwardprop(w).output
-    test.target must beCloseTo(testClass, 0.001)
+    valid.run.foreach {
+      case Xor.Left(err) => p(err)
+      case Xor.Right((TrainResult(iter, _), Validation(data))) =>
+        hl
+        if (iter == steps) p("training hasn't converged")
+        else p(s"training converged after $iter iterations")
+        data.unwrap.map(_.result).foreach(p(_))
+    }
+    1 === 1
   }
-
-  // TODO
-  // create simple spec for testing whether the values end up at the right
-  // matrix coordinate
-  // by specifying only single non-null initial values for input and weights
 }

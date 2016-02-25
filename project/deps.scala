@@ -10,18 +10,21 @@ extends tryp.Deps
     "macro-console" → (macroConsole ++ core)
   )
 
+  lazy val imp = ids(
+    "org.spire-math" %% "imp" % "+" % "provided"
+  )
+
   lazy val core = ids(
     dd("tryp" %% "pulsar-jvm" % "+", "tek/pulsar", "jvm"),
     "org.scalanlp" %% "breeze-natives" % "+",
     "org.scalanlp" %% "breeze-viz" % "+",
     "org.spire-math" %% "spire" % "+",
-    "org.spire-math" %% "imp" % "+" % "provided",
     "org.tpolecat" %% "atto-stream"  % "+"
-  )
+  ) ++ imp
 
   override lazy val unit = super.unit ++ ids(
     dd("tryp" %% "pulsar-unit-core" % "+", "tek/pulsar", "unit-core")
-  )
+  ) ++ imp
 
   def macroConsole = ids(
     dd("tryp" %% "pulsar-core" % "+", "tek/pulsar", "core")

@@ -116,7 +116,8 @@ extends Predictor[Weights, PState]
   }
 
   // TODO add bias node
-  def apply[A: Sample](sample: A, weights: Weights) = {
+  def apply[A: Sample](sample: A, weights: Weights)
+  : Prediction[A, Weights, PState] = {
     val z = PState.init(sample.feature, transfer.deriv)
     Prediction(sample, weights, weights.foldLeft(z)(layer))
   }
@@ -157,13 +158,9 @@ extends Optimizer[Weights, PState]
   }
 }
 
-case class PointTest()
-
-case class PointTrain()
-
-case class MLPTrain[A: Sample]
+case class MLPTrainer[A: Sample]
 (data: Nel[A], config: TrainConf)
-extends Train[Weights]
+extends Trainer[Weights]
 {
   lazy val predict = MLPPredictor(config.transfer)
 
@@ -177,14 +174,39 @@ extends Train[Weights]
 
   // TODO parallel computing
   def step(weights: Weights): Weights = {
-    data.foldLeft(weights) { (z, point) =>
-      val g = optimize(predict(point, weights))
-      z.fzipWith(g) { (a, b) => a :- (b * eta) }
+    val optimized = data map(a => optimize(predict(a, weights)))
+    optimized.foldLeft(weights) { (z, pred) =>
+      z.fzipWith(pred) { (a, b) => a :- (b * eta) }
     }
   }
 }
 
-case class MLPVeri[A: Sample](data: Nel[A])
-extends Veri
+case class MLPValidation[A](data: A, pred: PState)(implicit sample: Sample[A])
+extends SampleValidation[A, PState]
 {
+  def success = {
+    val predValue = pred.output
+    val cls = sample.predictedClass(predValue)
+    if (data.cls == cls) s"correct class"
+    else s"wrong class: $cls ($predValue)"
+  }
+
+  def result = s"${data.cls} (${data.feature.data.mkString(", ")}): $success"
+}
+
+case class MLPValidator[A: Sample]
+(data: Nel[A], config: TrainConf)
+extends Validator[A, Weights, PState]
+{
+  lazy val predict = MLPPredictor(config.transfer)
+
+  def verify(weights: Weights)(sample: A): SampleValidation[A, PState] = {
+    val pred = predict(sample, weights)
+    MLPValidation(sample, pred.pred)
+  }
+
+  def run(weights: Weights) = {
+    val pred = data map(verify(weights))
+    Validation(pred)
+  }
 }
