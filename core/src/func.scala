@@ -112,7 +112,7 @@ extends DFunc2[Diff.type]
 {
   implicit val double2Impl: DI2 =
     new DI2 {
-      def apply(a: Double, b: Double) = pow(0.5 * (b - a), 2)
+      def apply(a: Double, b: Double) = 0.5 * pow(b - a, 2)
     }
 
   def deriv = Diff
