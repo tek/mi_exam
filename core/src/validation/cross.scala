@@ -1,39 +1,41 @@
 package tryp
 package mi
 
-import cats._
+import cats._, data._
 
-case class CrossValidator[A: Sample, B, O](n: Int, data: Nel[A],
-  trainer: Nel[A] => Trainer[B], validator: Nel[A] => Validator[A, B, O],
-  stop: StopCriterion[B], trials: Option[Int])
+case class Model[A, P, O]
+(estimation: Estimation[P], validation: Validation[A, O])
+
+case class CrossValidator[A: Sample, P, O](n: Int, data: Nel[A],
+  trainer: Nel[A] => Estimator[P], validator: Nel[A] => Validator[A, P, O],
+  stop: StopCriterion[P], trials: Option[Int])
 {
-  val l = data.unwrap
+  def result = intervals.map(interval).toList
 
-  def intervals = {
-    val all = 0 until l.length by n
+  def interval(start: Int): String Xor Model[A, P, O] = {
+    separate(start)
+      .map { case (a, b) => learn(trainer(a), validator(b)) }
+  }
+
+  private[this] val l = data.unwrap
+
+  private[this] val testSize = l.length / n
+
+  private[this] def intervals = {
+    val all = 0 until l.length by testSize
     trials map(all.take) getOrElse(all)
   }
 
-  def run = {
-    intervals map { start =>
-      oneRange(start, start + n)
-    }
-  }
+  private[this] lazy val sliceError = s"couldn't slice data by $n"
 
-  lazy val sliceError = s"couldn't slice data by $n"
-
-  def separate(start: Int, end: Int) = {
+  private[this] def separate(start: Int) = {
+    val end = start + testSize
     (l.slice(0, start) ++ l.slice(end, l.length - 1)).nelXor(sliceError) |@|
       l.slice(start, end).nelXor(sliceError)
   }
 
-  def oneRange(start: Int, end: Int) = {
-    separate(start, end)
-      .map { case (a, b) => oneTrain(trainer(a), validator(b)) }
-  }
-
-  def oneTrain(train: Trainer[B], valid: Validator[A, B, O]) = {
-    val res = train.run(stop)
-    (res, valid.run(res.params))
+  private[this] def learn(est: Estimator[P], valid: Validator[A, P, O]) = {
+    val res = est.run(stop)
+    Model(res, valid.run(res.params))
   }
 }

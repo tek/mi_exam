@@ -101,11 +101,35 @@ extends WeightInitializer
   }
 }
 
-case class TrainConf
+case class LearnConf
 (transfer: DFunc[_ <: Func], eta: Double, layers: Nel[Int], steps: Int,
-  initializer: WeightInitializer, cost: DFunc2[_ <: Func2], bias: Boolean)
+  initializer: WeightInitializer, cost: DFunc2[_ <: Func2], bias: Boolean,
+  mode: LearnConf.LearnMode)
 
-case class MLPPredictor(config: TrainConf)
+object LearnConf
+{
+  sealed trait LearnMode
+
+  case object Batch
+  extends LearnMode
+
+  case object Online
+  extends LearnMode
+
+  def default(
+    transfer: DFunc[_ <: Func] = Logistic(0.5),
+    eta: Double = 0.8,
+    layers: Nel[Int] = Nel(4, 3),
+    steps: Int = 1000,
+    initializer: WeightInitializer = RandomWeights,
+    cost: DFunc2[_ <: Func2] = QuadraticError,
+    bias: Boolean = true,
+    mode: LearnMode = Batch
+  ) =
+      LearnConf(transfer, eta, layers, steps, initializer, cost, bias, mode)
+}
+
+case class MLPPredictor(config: LearnConf)
 extends Predictor[Weights, PState]
 {
   def transfer = config.transfer
@@ -163,28 +187,55 @@ extends Optimizer[Weights, PState]
   }
 }
 
-case class MLPTrainer[A: Sample]
-(data: Nel[A], config: TrainConf)
-extends Trainer[Weights]
+abstract class MLPStep[A: Sample]
+extends EstimationStep[Weights]
 {
+  val config: LearnConf
+
+  val data: Nel[A]
+
+  val eta = config.eta / data.length
+
   lazy val predict = MLPPredictor(config)
 
   lazy val optimize = BackProp(config.transfer, config.cost)
 
-  val featureCount = {
-    data.head.feature.length + (if (config.bias) 1 else 0)
-  }
+}
 
-  lazy val initialParams = config.initializer(featureCount, config.layers, 1)
-
-  val eta = config.eta / data.length
-
-  // TODO parallel computing
-  def step(weights: Weights): Weights = {
+// TODO parallel computing
+case class BatchStep[A: Sample](data: Nel[A], config: LearnConf)
+extends MLPStep
+{
+  def apply(weights: Weights): Weights = {
     val optimized = data map(a => optimize(predict(a, weights)))
     optimized.foldLeft(weights) { (z, pred) =>
       z.fzipWith(pred) { (a, b) => a :- (b * eta) }
     }
+  }
+}
+
+case class OnlineStep[A: Sample](data: Nel[A], config: LearnConf)
+extends MLPStep
+{
+  def apply(weights: Weights): Weights = {
+    data.foldLeft(weights) { (z, sample) =>
+      val o = optimize(predict(sample, z))
+      z.fzipWith(o) { (a, b) => a :- (b * eta) }
+    }
+  }
+}
+
+case class MLPEstimator[A: Sample]
+(data: Nel[A], config: LearnConf)
+extends Estimator[Weights]
+{
+  val featureCount = data.head.feature.length + (if (config.bias) 1 else 0)
+
+  lazy val initialParams = config.initializer(featureCount, config.layers, 1)
+
+  lazy val step: MLPStep[A] = {
+    if (config.mode == LearnConf.Batch) BatchStep(data, config)
+    else OnlineStep(data, config)
   }
 }
 
@@ -195,18 +246,25 @@ extends SampleValidation[A, PState]
 
   lazy val predictedClass = sample.predictedClass(predictedValue)
 
-  def success = data.cls == predictedClass
+  def actualClass = data.cls
+
+  def success = actualClass == predictedClass
 
   def successInfo = {
     if (success) s"correct class"
     else s"wrong class: $predictedClass ($predictedValue)"
   }
 
-  def info = s"${data.cls} (${data.feature.data.mkString(", ")}): $successInfo"
+  def info =
+    s"${actualClass} (${data.feature.data.mkString(", ")}): $successInfo"
+
+  def error(cost: Func2) = {
+    cost.f(data.value, pred.output)
+  }
 }
 
 case class MLPValidator[A: Sample]
-(data: Nel[A], config: TrainConf)
+(data: Nel[A], config: LearnConf)
 extends Validator[A, Weights, PState]
 {
   lazy val predict = MLPPredictor(config)

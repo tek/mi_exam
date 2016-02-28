@@ -35,11 +35,11 @@ extends Spec
 
   val sample: Dat
 
-  val conf: TrainConf
+  val conf: LearnConf
 
   def bias = false
 
-  lazy val train = MLPTrainer(Nel(sample), conf)
+  lazy val train = MLPEstimator(Nel(sample), conf)
 
   val costFun = QuadraticError
 
@@ -47,9 +47,9 @@ extends Spec
 
   lazy val f1 = sample.feature(0)
 
-  lazy val pred = train.predict(sample, train.initialParams)
+  lazy val pred = train.step.predict(sample, train.initialParams)
 
-  def optimizer = train.optimize
+  def optimizer = train.step.optimize
 
   def forward = pred.pred
 
@@ -96,7 +96,7 @@ extends InternalBase
     ))
 
   lazy val conf =
-    TrainConf(transfer, eta, layers, steps, weights, costFun, bias)
+    LearnConf.default(transfer, eta, layers, steps, weights, costFun, bias)
 
   def input = {
     forward.in must_== Nel(Col(x0, 0d), Col(h1_0, 0d, 0d), Col(h1_0))
@@ -172,7 +172,8 @@ extends InternalBase
       DenseMatrix.create(1, 3, Array(1d, 0d, 0d))
     ))
 
-  lazy val conf = TrainConf(tr, eta, layers, steps, weights, costFun, bias)
+  lazy val conf =
+    LearnConf.default(tr, eta, layers, steps, weights, costFun, bias)
 
   lazy val sample = Dat(DenseVector(x0, 0d), 1d)
 
@@ -210,7 +211,7 @@ extends Spec
   main $main
   """
 
-  val layers = Nel(5, 4)
+  val layers = Nel(4)
 
   val steps = 10000
 
@@ -226,31 +227,33 @@ extends Spec
 
   lazy val transfer = new Logistic(beta)
 
+  lazy val data = Iris.loadNel
+
   val cost = QuadraticError
 
   implicit lazy val conf =
-    TrainConf(transfer, eta, layers, steps, RandomWeights, cost, bias)
+    LearnConf.default(transfer, eta, layers, steps, RandomWeights, cost, bias,
+      LearnConf.Online)
 
   val stop = ConvergenceStopCriterion(steps, epsilon)
 
-  lazy val valid = CrossValidator[Iris, Weights, PState](
-    25, Iris.loadNel, MLPTrainer[Iris](_, conf), MLPValidator[Iris](_, conf),
+  lazy val validator = CrossValidator[Iris, Weights, PState](
+    15, data, MLPEstimator[Iris](_, conf), MLPValidator[Iris](_, conf),
     stop, trials)
 
   def main = {
-    val results = valid.run.flatMap {
-      case Xor.Left(err) =>
-        p(err)
-        List(false)
-      case Xor.Right((TrainResult(iter, _), Validation(data))) =>
+    val result = XorT(validator.result)
+    val errors = result.swap.collectRight
+    val results = result.collectRight
+    val stats = results.map(_.validation.stats(cost))
+    val error = stats.map(_.total).sum / data.length
+    results.foreach {
+      case Model(Estimation(iter, _), Validation(data)) =>
         hl
         if (iter == steps) p("training hasn't converged")
         else p(s"training converged after $iter iterations")
-        data.unwrap.map { res =>
-          p(res.info)
-          res.success
-        }
+        data.unwrap.foreach { res => p(res.info) }
     }
-    results must not contain(false)
+    error must be_<=(0.0003d * trials.getOrElse(data.length))
   }
 }

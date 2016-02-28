@@ -59,21 +59,26 @@ extends StopCriterion[Nel[Mat]]
   }
 }
 
-case class TrainResult[P](iterations: Long, params: P)
+case class Estimation[P](iterations: Long, params: P)
 
-trait Trainer[P]
+trait EstimationStep[P]
+{
+  def apply(weights: P): P
+}
+
+trait Estimator[P]
 {
   def initialParams: P
 
-  def step(par: P): P
+  val step: EstimationStep[P]
 
   def result(iteration: Long, par: P) = {
-    TrainResult(iteration, par)
+    Estimation(iteration, par)
   }
 
-  def run(stop: StopCriterion[P]): TrainResult[P] = {
+  def run(stop: StopCriterion[P]): Estimation[P] = {
     @tailrec
-    def go(iteration: Long, par: P, prev: Option[P]): TrainResult[P] = {
+    def go(iteration: Long, par: P, prev: Option[P]): Estimation[P] = {
       if (stop(iteration, par, prev)) result(iteration, par)
       else go(iteration + 1, step(par), Some(par))
     }
