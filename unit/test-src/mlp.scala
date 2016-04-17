@@ -1,9 +1,6 @@
 package tryp
 package mi
 package mlp
-package unit
-
-import cats._, data.{Func => _, _}
 
 import spire.math._
 import spire.algebra._
@@ -35,7 +32,7 @@ extends Spec
 
   val sample: Dat
 
-  val conf: LearnConf
+  val conf: MLPLearnConf
 
   def bias = false
 
@@ -96,7 +93,7 @@ extends InternalBase
     ))
 
   lazy val conf =
-    LearnConf.default(transfer, eta, layers, steps, weights, costFun, bias)
+    MLPLearnConf.default(transfer, eta, layers, steps, weights, costFun, bias)
 
   def input = {
     forward.in must_== Nel(Col(x0, 0d), Col(h1_0, 0d, 0d), Col(h1_0))
@@ -173,7 +170,7 @@ extends InternalBase
     ))
 
   lazy val conf =
-    LearnConf.default(tr, eta, layers, steps, weights, costFun, bias)
+    MLPLearnConf.default(tr, eta, layers, steps, weights, costFun, bias)
 
   lazy val sample = Dat(DenseVector(x0, 0d), 1d)
 
@@ -223,7 +220,7 @@ extends Spec
 
   def bias = true
 
-  def trials = None
+  def trials = 1.some
 
   lazy val transfer = new Logistic(beta)
 
@@ -232,10 +229,10 @@ extends Spec
   val cost = QuadraticError
 
   implicit lazy val conf =
-    LearnConf.default(transfer, eta, layers, steps, RandomWeights, cost, bias,
-      LearnConf.Online)
+    MLPLearnConf.default(transfer, eta, layers, steps, RandomWeights, cost,
+      bias, LearnConf.Online)
 
-  val stop = ConvergenceStopCriterion(steps, epsilon)
+  val stop = MLPConvergenceStopCriterion(steps, epsilon)
 
   lazy val validator = CrossValidator[Iris, Weights, PState](
     15, data, MLPEstimator[Iris](_, conf), MLPValidator[Iris](_, conf),

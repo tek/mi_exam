@@ -12,13 +12,11 @@ import spire.algebra._
 import spire.implicits._
 import spire.random._
 
-import imp.imp
-
 import breeze.linalg.{DenseVector, DenseMatrix, Transpose}
 import breeze.generic.{UFunc, MappingUFunc}
+import breeze.linalg.sum
+import breeze.numerics.abs
 import UFunc.UImpl
-
-import Sample.ops._
 
 object Logistic
 {
@@ -101,20 +99,14 @@ extends WeightInitializer
   }
 }
 
-case class LearnConf
+case class MLPLearnConf
 (transfer: DFunc[_ <: Func], eta: Double, layers: Nel[Int], steps: Int,
   initializer: WeightInitializer, cost: DFunc2[_ <: Func2], bias: Boolean,
   mode: LearnConf.LearnMode)
 
-object LearnConf
+object MLPLearnConf
 {
-  sealed trait LearnMode
-
-  case object Batch
-  extends LearnMode
-
-  case object Online
-  extends LearnMode
+  import LearnConf._
 
   def default(
     transfer: DFunc[_ <: Func] = Logistic(0.5),
@@ -126,10 +118,10 @@ object LearnConf
     bias: Boolean = true,
     mode: LearnMode = Batch
   ) =
-      LearnConf(transfer, eta, layers, steps, initializer, cost, bias, mode)
+      MLPLearnConf(transfer, eta, layers, steps, initializer, cost, bias, mode)
 }
 
-case class MLPPredictor(config: LearnConf)
+case class MLPPredictor(config: MLPLearnConf)
 extends Predictor[Weights, PState]
 {
   def transfer = config.transfer
@@ -190,7 +182,7 @@ extends Optimizer[Weights, PState]
 abstract class MLPStep[A: Sample]
 extends EstimationStep[Weights]
 {
-  val config: LearnConf
+  val config: MLPLearnConf
 
   val data: Nel[A]
 
@@ -203,7 +195,7 @@ extends EstimationStep[Weights]
 }
 
 // TODO parallel computing
-case class BatchStep[A: Sample](data: Nel[A], config: LearnConf)
+case class BatchStep[A: Sample](data: Nel[A], config: MLPLearnConf)
 extends MLPStep
 {
   def apply(weights: Weights): Weights = {
@@ -214,7 +206,7 @@ extends MLPStep
   }
 }
 
-case class OnlineStep[A: Sample](data: Nel[A], config: LearnConf)
+case class OnlineStep[A: Sample](data: Nel[A], config: MLPLearnConf)
 extends MLPStep
 {
   def apply(weights: Weights): Weights = {
@@ -226,7 +218,7 @@ extends MLPStep
 }
 
 case class MLPEstimator[A: Sample]
-(data: Nel[A], config: LearnConf)
+(data: Nel[A], config: MLPLearnConf)
 extends Estimator[Weights]
 {
   val featureCount = data.head.feature.length + (if (config.bias) 1 else 0)
@@ -264,7 +256,7 @@ extends SampleValidation[A, PState]
 }
 
 case class MLPValidator[A: Sample]
-(data: Nel[A], config: LearnConf)
+(data: Nel[A], config: MLPLearnConf)
 extends Validator[A, Weights, PState]
 {
   lazy val predict = MLPPredictor(config)
@@ -277,5 +269,15 @@ extends Validator[A, Weights, PState]
   def run(weights: Weights) = {
     val pred = data map(verify(weights))
     Validation(pred)
+  }
+}
+
+case class MLPConvergenceStopCriterion(count: Long, epsilon: Double)
+extends ConvergenceStopCriterion[Nel[Mat]]
+{
+  def diff(params: Nel[Mat], prev: Nel[Mat]) = {
+      params.unwrap.zip(prev.unwrap)
+        .map { case (a, b) => sum(abs(a :- b)) / a.size }
+        .sum
   }
 }

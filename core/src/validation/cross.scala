@@ -1,8 +1,6 @@
 package tryp
 package mi
 
-import cats._, data._
-
 case class Model[A, P, O]
 (estimation: Estimation[P], validation: Validation[A, O])
 

@@ -6,8 +6,6 @@ import annotation.tailrec
 import simulacrum._
 
 import breeze.generic.{UFunc, MappingUFunc}
-import breeze.linalg.sum
-import breeze.numerics.abs
 
 trait ModelClass
 
@@ -42,18 +40,17 @@ extends StopCriterion[P]
   def apply(iteration: Long, params: P, prev: Option[P]) = iteration >= count
 }
 
-case class ConvergenceStopCriterion(count: Long, epsilon: Double)
-extends StopCriterion[Nel[Mat]]
+trait ConvergenceStopCriterion[P]
+extends StopCriterion[P]
 {
-  val steps = StepCountStopCriterion[Nel[Mat]](count)
+  def count: Long
+  def epsilon: Double
 
-  def diff(params: Nel[Mat], prev: Nel[Mat]) = {
-      params.unwrap.zip(prev.unwrap)
-        .map { case (a, b) => sum(abs(a :- b)) / a.size }
-        .sum
-  }
+  val steps = StepCountStopCriterion[P](count)
 
-  def apply(iteration: Long, params: Nel[Mat], prev: Option[Nel[Mat]]) = {
+  def diff(params: P, prev: P): Double
+
+  def apply(iteration: Long, params: P, prev: Option[P]) = {
     steps(iteration, params, prev) ||
       prev.exists(a => diff(params, a) < epsilon)
   }
@@ -100,4 +97,15 @@ trait Predictor[P, O]
 trait Optimizer[P, O]
 {
   def apply[A: Sample](a: Prediction[A, P, O]): P
+}
+
+object LearnConf
+{
+  sealed trait LearnMode
+
+  case object Batch
+  extends LearnMode
+
+  case object Online
+  extends LearnMode
 }

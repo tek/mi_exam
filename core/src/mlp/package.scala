@@ -1,5 +1,11 @@
 package tryp
 package mi
+package mlp
 
-package object mlp
-extends mi.meta.MLPTypes
+trait MLPTypes
+{
+  type Layers = Nel[Col]
+}
+
+object `package`
+extends MLPTypes
