@@ -5,8 +5,9 @@ case class Model[A, P, O]
 (estimation: Estimation[P], validation: Validation[A, O])
 
 case class CrossValidator[A: Sample, P, O](n: Int, data: Nel[A],
-  estimator: Nel[A] => Estimator[P], validator: Nel[A] => Validator[A, P, O],
-  stop: StopCriterion[P], trials: Option[Int])
+  estimator: Nel[A] => Estimator[A, P],
+  validator: Nel[A] => Validator[A, P, O], stop: StopCriterion[P],
+  trials: Option[Int])
 {
   def result = intervals.map(interval).toList
 

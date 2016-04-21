@@ -191,7 +191,6 @@ extends EstimationStep[Weights]
   lazy val predict = MLPPredictor(config)
 
   lazy val optimize = BackProp(config.transfer, config.cost)
-
 }
 
 // TODO parallel computing
@@ -219,10 +218,8 @@ extends MLPStep
 
 case class MLPEstimator[A: Sample]
 (data: Nel[A], config: MLPLearnConf)
-extends Estimator[Weights]
+extends Estimator[A, Weights]
 {
-  val featureCount = data.head.feature.length + (if (config.bias) 1 else 0)
-
   lazy val initialParams = config.initializer(featureCount, config.layers, 1)
 
   lazy val step: MLPStep[A] = {

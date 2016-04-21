@@ -218,14 +218,11 @@ extends Optimizer[Params[P], RState]
   }
 }
 
-abstract class RBFStep[A: Sample, P: BasisFunction: UpdateParams]
+case class RBFStep[A: Sample, P: BasisFunction: UpdateParams]
+(data: Nel[A], config: RBFLearnConf[P])
 extends EstimationStep[Params[P]]
 {
   import UpdateParams.ops._
-
-  val config: RBFLearnConf[P]
-
-  val data: Nel[A]
 
   lazy val features = data map(_.feature)
 
@@ -273,38 +270,19 @@ extends EstimationStep[Params[P]]
     val weights = pinv(leftCoeff) * rightCoeff
     Params(weights, bf)
   }
-}
 
-case class BatchStep[A: Sample, P: BasisFunction: UpdateParams](data: Nel[A],
-  config: RBFLearnConf[P])
-extends RBFStep[A, P]
-{
   def apply(params: Params[P]): Params[P] = {
     updateWeights(updateBf(params.bf))
   }
 }
 
-case class OnlineStep[A: Sample, P: BasisFunction: UpdateParams]
-(data: Nel[A], config: RBFLearnConf[P])
-extends RBFStep[A, P]
-{
-  def apply(params: Params[P]): Params[P] = {
-    params
-  }
-}
-
 case class RBFEstimator[A: Sample, P: BasisFunction: Initializer: UpdateParams]
 (data: Nel[A], config: RBFLearnConf[P])
-extends Estimator[Params[P]]
+extends Estimator[A, Params[P]]
 {
-  val featureCount = data.head.feature.length
-
   lazy val initialParams = config.initialParams(featureCount)
 
-  lazy val step: RBFStep[A, P] = {
-    if (config.mode == LearnConf.Batch) BatchStep(data, config)
-    else OnlineStep(data, config)
-  }
+  lazy val step = RBFStep(data, config)
 }
 
 case class RBFValidation[A](data: A, pred: RState)(implicit sample: Sample[A])

@@ -63,14 +63,18 @@ case class Estimation[P](iterations: Long, params: P)
 
 trait EstimationStep[P]
 {
-  def apply(weights: P): P
+  def apply(params: P): P
 }
 
-trait Estimator[P]
+abstract class Estimator[A: Sample, P]
 {
+  def data: Nel[A]
+
   def initialParams: P
 
   val step: EstimationStep[P]
+
+  val featureCount = data.head.feature.length
 
   def result(iteration: Long, par: P) = {
     Estimation(iteration, par)
