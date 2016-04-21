@@ -47,6 +47,16 @@ case class Params[P: BasisFunction](weights: Col, bf: Nev[P])
   def centers = bf map(_.center)
 }
 
+object Params
+{
+  implicit def instance_ParamDiff_Params[P]: ParamDiff[Params[P]] =
+    new ParamDiff[Params[P]] {
+      def diff(a: Params[P], b: Params[P]): Double = {
+        sum(abs(a.weights :- b.weights)) / a.weights.size
+      }
+    }
+}
+
 @typeclass abstract class Initializer[P: BasisFunction]
 extends AnyRef
 {
@@ -335,15 +345,5 @@ extends Validator[A, Params[P], RState]
   def run(params: Params[P]) = {
     val pred = data map(verify(params))
     Validation(pred)
-  }
-}
-
-case class RBFConvergenceStopCriterion[P: BasisFunction]
-(count: Long, epsilon: Double)
-extends ConvergenceStopCriterion[Params[P]]
-{
-  def diff(params: Params[P], prev: Params[P]) = {
-    val a = params.weights
-    sum(abs(a :- prev.weights)) / a.size
   }
 }

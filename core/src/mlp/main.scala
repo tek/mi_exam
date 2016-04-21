@@ -273,8 +273,15 @@ extends Validator[A, Weights, PState]
 }
 
 case class MLPConvergenceStopCriterion(count: Long, epsilon: Double)
-extends ConvergenceStopCriterion[Nel[Mat]]
+extends StopCriterion[Nel[Mat]]
 {
+  val steps = StepCountStopCriterion[Nel[Mat]](count)
+
+  def apply(iteration: Long, params: Nel[Mat], prev: Option[Nel[Mat]]) = {
+    steps(iteration, params, prev) ||
+      prev.exists(a => diff(params, a) < epsilon)
+  }
+
   def diff(params: Nel[Mat], prev: Nel[Mat]) = {
       params.unwrap.zip(prev.unwrap)
         .map { case (a, b) => sum(abs(a :- b)) / a.size }

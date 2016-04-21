@@ -41,15 +41,17 @@ extends StopCriterion[P]
   def apply(iteration: Long, params: P, prev: Option[P]) = iteration >= count
 }
 
-trait ConvergenceStopCriterion[P]
+@typeclass trait ParamDiff[P]
+{
+  def diff(a: P, b: P): Double
+}
+
+case class ConvergenceStopCriterion[P: ParamDiff](count: Long, epsilon: Double)
 extends StopCriterion[P]
 {
-  def count: Long
-  def epsilon: Double
-
   val steps = StepCountStopCriterion[P](count)
 
-  def diff(params: P, prev: P): Double
+  lazy val diff = ParamDiff[P].diff _
 
   def apply(iteration: Long, params: P, prev: Option[P]) = {
     steps(iteration, params, prev) ||

@@ -11,6 +11,8 @@ extends Spec
 
   type P = GaussBF
 
+  type Par = Params[P]
+
   val steps = 1000
 
   val centroids = 3
@@ -32,9 +34,9 @@ extends Spec
     RBFLearnConf.default[P, Iris](steps, centroids, eta, lambda,
       LearnConf.Batch)
 
-  val stop = RBFConvergenceStopCriterion[P](steps, epsilon)
+  val stop = ConvergenceStopCriterion[Par](steps, epsilon)
 
-  lazy val validator = CrossValidator[Iris, Params[P], RState](
+  lazy val validator = CrossValidator[Iris, Par, RState](
     15, data, RBFEstimator[Iris, P](_, conf),
     RBFValidator[Iris, P](_, conf), stop, trials)
 
