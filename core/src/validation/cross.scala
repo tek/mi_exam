@@ -5,14 +5,14 @@ case class Model[A, P, O]
 (estimation: Estimation[P], validation: Validation[A, O])
 
 case class CrossValidator[A: Sample, P, O](n: Int, data: Nel[A],
-  trainer: Nel[A] => Estimator[P], validator: Nel[A] => Validator[A, P, O],
+  estimator: Nel[A] => Estimator[P], validator: Nel[A] => Validator[A, P, O],
   stop: StopCriterion[P], trials: Option[Int])
 {
   def result = intervals.map(interval).toList
 
   def interval(start: Int): String Xor Model[A, P, O] = {
     separate(start)
-      .map { case (a, b) => learn(trainer(a), validator(b)) }
+      .map { case (a, b) => learn(a, b) }
   }
 
   private[this] val l = data.unwrap
@@ -32,8 +32,8 @@ case class CrossValidator[A: Sample, P, O](n: Int, data: Nel[A],
       l.slice(start, end).nelXor(sliceError)
   }
 
-  private[this] def learn(est: Estimator[P], valid: Validator[A, P, O]) = {
-    val res = est.run(stop)
-    Model(res, valid.run(res.params))
+  private[this] def learn(est: Nel[A], valid: Nel[A]) = {
+    val res = estimator(est).run(stop)
+    Model(res, validator(valid).run(res.params))
   }
 }
