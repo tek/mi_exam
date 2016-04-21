@@ -7,7 +7,7 @@ import spire.algebra._
 import spire.implicits._
 import spire.random._
 
-import breeze.linalg.{DenseVector, DenseMatrix, Transpose}
+import breeze.linalg.Transpose
 
 trait InternalBase
 extends Spec
@@ -84,12 +84,12 @@ extends InternalBase
 
   val h1_0 = x0 * w0_00
 
-  lazy val sample = Dat(DenseVector(x0, 0d), 1d)
+  lazy val sample = Dat(Col(x0, 0d), 1d)
 
   def weights =
     new ManualWeights(Nel(
-      DenseMatrix.create(3, 2, Array(w0_00, 0d, 0d, 0d, 0d, 0d)),
-      DenseMatrix.create(1, 3, Array(1d, 0d, 0d))
+      Mat.create(3, 2, Array(w0_00, 0d, 0d, 0d, 0d, 0d)),
+      Mat.create(1, 3, Array(1d, 0d, 0d))
     ))
 
   lazy val conf =
@@ -165,14 +165,14 @@ extends InternalBase
 
   def weights =
     new ManualWeights(Nel(
-      DenseMatrix.create(3, 2, Array(w0_00, 0d, 0d, 0d, 0d, 0d)),
-      DenseMatrix.create(1, 3, Array(1d, 0d, 0d))
+      Mat.create(3, 2, Array(w0_00, 0d, 0d, 0d, 0d, 0d)),
+      Mat.create(1, 3, Array(1d, 0d, 0d))
     ))
 
   lazy val conf =
     MLPLearnConf.default(tr, eta, layers, steps, weights, costFun, bias)
 
-  lazy val sample = Dat(DenseVector(x0, 0d), 1d)
+  lazy val sample = Dat(Col(x0, 0d), 1d)
 
   def input = {
     val ti1 = Col(td.f(x0), td.f(0d))
@@ -246,10 +246,9 @@ extends Spec
     val error = stats.map(_.total).sum / data.length
     results.foreach {
       case Model(Estimation(iter, _), Validation(data)) =>
-        hl
-        if (iter == steps) p("training hasn't converged")
-        else p(s"training converged after $iter iterations")
-        data.unwrap.foreach { res => p(res.info) }
+        if (iter == steps) log.info("training hasn't converged")
+        else log.info(s"training converged after $iter iterations")
+        data.unwrap.foreach { res => log.info(res.info) }
     }
     error must be_<=(0.0003d * trials.getOrElse(data.length))
   }
