@@ -23,6 +23,7 @@ extends tryp.Deps
   ) ++ imp
 
   override lazy val unit = super.unit ++ ids(
+    "org.specs2" %% "specs2-scalacheck" % "+",
     dd("tryp" %% "pulsar-unit-core" % "+", "tek/pulsar", "unit-core")
   ) ++ imp
 
