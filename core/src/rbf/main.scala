@@ -4,8 +4,22 @@ package rbf
 
 import simulacrum._
 
-import breeze.linalg.sum
+import scalaz.std.vector.{vectorInstance => zVectorInstance}
+import scalaz.syntax.zip._
+
+import monocle.macros.Lenses
+import monocle.function._
+import monocle.syntax.apply._
+
+import spire.math.exp
+import spire.algebra._
+import spire.implicits._
+import spire.random._
+
+import breeze.linalg.{sum, squaredDistance, pinv}
+import breeze.linalg.functions.euclideanDistance
 import breeze.numerics.abs
+import breeze.generic.UFunc
 
 import LearnConf._
 
@@ -20,79 +34,172 @@ object Linalg
   }
 }
 
-sealed trait BFParams
-
-case class Params[P <: BFParams](weights: Col, bf: P)
-
-@typeclass trait Initializer[P <: BFParams]
+@typeclass trait BasisFunction[P]
 {
-  def init(features: Int, centroids: Int): Params[P]
+  def center(p: P): Col
+  def output(p: P)(input: Col): Double
 }
 
-@typeclass trait UpdateParams[P <: BFParams]
+import BasisFunction.ops._
+
+case class Params[P: BasisFunction](weights: Col, bf: Nev[P])
 {
-  def update(params: Params[P], pred: Params[P], eta: Double): Params[P]
+  def centers = bf map(_.center)
 }
 
-case class GaussParams(t: Mat, sigma: Col)
-extends BFParams
-
-object GaussParams
+@typeclass abstract class Initializer[P: BasisFunction]
+extends AnyRef
 {
-  def rand(features: Int, centroids: Int) = {
-    GaussParams(Mat.rand(features, centroids), Col.rand(centroids))
+  def init[A: Sample](features: Int, centroids: Int): Params[P]
+}
+
+abstract class Initialization[P: Initializer: BasisFunction]
+{
+  def create(features: Int, centroids: Int): Params[P]
+}
+
+class RandomInitialization[P: Initializer: BasisFunction, A: Sample]
+extends Initialization[P]
+{
+  def create(features: Int, centroids: Int) =
+    Initializer[P].init[A](features, centroids)
+}
+
+class ManualInitialization[P: Initializer: BasisFunction]
+(manual: Params[P])
+extends Initialization[P]
+{
+  def create(features: Int, centroids: Int) = manual
+}
+
+@typeclass abstract class UpdateParams[P: BasisFunction]
+extends AnyRef
+{
+  def updateCenter(index: Int, diff: Col): Nev[P] => Nev[P]
+
+  def updateParams(a: P)(all: Nev[P], lambda: Double): P
+}
+
+@Lenses
+case class GaussBF(center: Col, sigma: Double)
+extends UFunc
+{
+  lazy val sigmaSquared = sigma * sigma
+
+  implicit val colImpl = new Impl[Col, Double] {
+    def apply(a: Col) = GaussBF.main(a, center, sigmaSquared)
   }
+}
 
-  implicit lazy val instance_Initializer_GaussParams
-  : Initializer[GaussParams] =
-    new Initializer[GaussParams] {
-      def init(features: Int, centroids: Int) = {
+trait GaussBFInstances
+{
+  implicit lazy val instance_Initializer_GaussBF
+  : Initializer[GaussBF] =
+    new Initializer[GaussBF] {
+      def init[A: Sample](features: Int, centroids: Int) = {
         Params(Linalg.randWeightCol(centroids),
-          GaussParams.rand(features, centroids))
+          GaussBF.rand[A](features, centroids))
       }
     }
 
-  implicit lazy val instance_UpdateParams_GaussParams
-  : UpdateParams[GaussParams] =
-    new UpdateParams[GaussParams] {
-      def update(params: Params[GaussParams], pred: Params[GaussParams],
+  implicit lazy val instance_UpdateParams_GaussBF
+  : UpdateParams[GaussBF] =
+    new UpdateParams[GaussBF] {
+      def update(params: Params[GaussBF], pred: Params[GaussBF],
         eta: Double) = {
           params
       }
+
+      def updateCenter(index: Int, diff: Col) =
+        (nevIndex[GaussBF].index(index) ^|-> GaussBF.center).modify(_ + diff)
+
+      def updateParams(bf: GaussBF)(all: Nev[GaussBF], lambda: Double)
+      : GaussBF = {
+        val dist = all.map {
+          case a if a != bf => euclideanDistance(bf.center, a.center)
+          case _ => Double.MaxValue
+        }
+        val newSigma = dist.unwrap.min * lambda
+        (bf &|-> GaussBF.sigma).set(newSigma)
+      }
+    }
+
+  implicit lazy val instance_BasisFunction_GaussBF
+  : BasisFunction[GaussBF] =
+    new BasisFunction[GaussBF] {
+      def center(a: GaussBF) = a.center
+
+      def output(a: GaussBF)(input: Col): Double = {
+        import a._
+        a(input)
+      }
     }
 }
 
-case class RBFLearnConf(centroids: Int, eta: Double, mode: LearnConf.LearnMode)
+object GaussBF
+extends GaussBFInstances
+{
+  def rand[A: Sample](features: Int, centroids: Int): Nev[GaussBF] = {
+    def inst = GaussBF(Col.rand(features) * Sample[A].range,
+      tryp.Random.double())
+    centroids gen inst match {
+      case head :: tail => Nev(head, tail: _*)
+      case a => Nev(inst)
+    }
+  }
+
+  def main(sample: Col, center: Col, variance: Double) = {
+    exp(-squaredDistance(sample, center) / variance)
+  }
+}
+
+case class RBFLearnConf[P: BasisFunction](steps: Int, centroids: Int,
+  eta: Double, lambda: Double, mode: LearnConf.LearnMode,
+  initialization: Initialization[P])
+  {
+    lazy val bf = BasisFunction[P]
+
+    def initialParams(featureCount: Int) =
+      initialization.create(featureCount, centroids)
+  }
 
 object RBFLearnConf
 {
-  def default(
-    centroids: Int = 5,
+  def default[P: BasisFunction: Initializer, A: Sample](
+    steps: Int = 10,
+    centroids: Int = 3,
     eta: Double = 0.3,
-    mode: LearnMode = Batch
-  ) = RBFLearnConf(centroids, eta, mode)
+    lambda: Double = 2.0,
+    mode: LearnMode = Batch,
+    initialization: Option[Initialization[P]] = None
+  ) =
+    RBFLearnConf[P](steps, centroids, eta, lambda, mode,
+      initialization | new RandomInitialization[P, A])
 }
 
 case class RState(output: Double)
 
 object RState
 {
-  def init() = {
-    RState(1.0)
-  }
+  def init(output: Double) = RState(output)
 }
 
-case class RBFPredictor[P <: BFParams](config: RBFLearnConf)
+case class RBFPredictor[P: BasisFunction](config: RBFLearnConf[P])
 extends Predictor[Params[P], RState]
 {
+  def rbfOut[A: Sample](data: Col, bf: Nev[P]): Nev[Double] = {
+    bf.map(_.output(data))
+  }
+
   def apply[A: Sample](sample: A, params: Params[P])
   : Prediction[A, Params[P], RState] = {
-    val z = RState.init()
+    val r = Col(rbfOut(sample.feature, params.bf).unwrap.toArray)
+    val z = RState.init(params.weights.t * r)
     Prediction(sample, params, z)
   }
 }
 
-case class TwoStep[P <: BFParams]
+case class TwoStep[P: BasisFunction]
 ()
 extends Optimizer[Params[P], RState]
 {
@@ -101,34 +208,74 @@ extends Optimizer[Params[P], RState]
   }
 }
 
-abstract class RBFStep[A: Sample, P <: BFParams]
+abstract class RBFStep[A: Sample, P: BasisFunction: UpdateParams]
 extends EstimationStep[Params[P]]
 {
-  val config: RBFLearnConf
+  import UpdateParams.ops._
+
+  val config: RBFLearnConf[P]
 
   val data: Nel[A]
+
+  lazy val features = data map(_.feature)
+
+  lazy val targets = Col(data map(_.value) unwrap: _*)
 
   val eta = config.eta / data.length
 
   lazy val predict = RBFPredictor[P](config)
 
   lazy val optimize = TwoStep[P]()
-}
 
-case class BatchStep[A: Sample, P <: BFParams: UpdateParams](data: Nel[A],
-  config: RBFLearnConf)
-extends RBFStep[A, P]
-{
-  def apply(params: Params[P]): Params[P] = {
-    val optimized = data map(a => optimize(predict(a, params)))
-    optimized.foldLeft(params) { (z, pred) =>
-      UpdateParams[P].update(z, pred, eta)
-    }
+  /* @return the Col in `t` and its index in `t` that is closest to `z`
+   * by euclidean distance metrics
+   */
+  def closest(z: Col, t: Nev[Col]): (Col, Int) = {
+    val c = t
+      .map(euclideanDistance(z, _))
+      .fzip(t)
+      .fzip(Nev(0, (1 until t.length): _*))
+      .reduceLeft((a, b) => if(a._1._1 < b._1._1) a else b)
+    (c._1._2, c._2)
+  }
+
+  def updateCenter(z: Nev[P], sample: Col) = {
+    val (tq, index) = closest(sample, z.map(_.center))
+    val diff = (sample - tq) * eta
+    UpdateParams[P].updateCenter(index, diff)(z)
+  }
+
+  def moveCenters(params: Nev[P]): Nev[P] = {
+    features.foldLeft(params)(updateCenter)
+  }
+
+  def updateBf(params: Nev[P]): Nev[P] = {
+    val moved = moveCenters(params)
+    moved.map(_.updateParams(moved, config.lambda))
+  }
+
+  def updateWeights(bf: Nev[P]): Params[P] = {
+    val out = features.map(predict.rbfOut(_, bf).unwrap.toArray).unwrap
+    val phi = Mat(out: _*)
+    val trans = phi.t
+    val leftCoeff = trans * phi
+    val rightCoeff = trans * targets
+    val weights = pinv(leftCoeff) * rightCoeff
+    Params(weights, bf)
   }
 }
 
-case class OnlineStep[A: Sample, P <: BFParams: UpdateParams]
-(data: Nel[A], config: RBFLearnConf)
+case class BatchStep[A: Sample, P: BasisFunction: UpdateParams](data: Nel[A],
+  config: RBFLearnConf[P])
+extends RBFStep[A, P]
+{
+  def apply(params: Params[P]): Params[P] = {
+    updateWeights(updateBf(params.bf))
+  }
+}
+
+case class OnlineStep[A: Sample, P: BasisFunction: UpdateParams]
+(data: Nel[A], config: RBFLearnConf[P])
 extends RBFStep[A, P]
 {
   def apply(params: Params[P]): Params[P] = {
@@ -136,13 +283,13 @@ extends RBFStep[A, P]
   }
 }
 
-case class RBFEstimator[A: Sample, P <: BFParams: Initializer: UpdateParams]
-(data: Nel[A], config: RBFLearnConf)
+case class RBFEstimator[A: Sample, P: BasisFunction: Initializer: UpdateParams]
+(data: Nel[A], config: RBFLearnConf[P])
 extends Estimator[Params[P]]
 {
   val featureCount = data.head.feature.length
 
-  lazy val initialParams = Initializer[P].init(featureCount, config.centroids)
+  lazy val initialParams = config.initialParams(featureCount)
 
   lazy val step: RBFStep[A, P] = {
     if (config.mode == LearnConf.Batch) BatchStep(data, config)
@@ -174,8 +321,8 @@ extends SampleValidation[A, RState]
   }
 }
 
-case class RBFValidator[A: Sample, P <: BFParams]
-(data: Nel[A], config: RBFLearnConf)
+case class RBFValidator[A: Sample, P: BasisFunction]
+(data: Nel[A], config: RBFLearnConf[P])
 extends Validator[A, Params[P], RState]
 {
   lazy val predict = RBFPredictor[P](config)
@@ -191,7 +338,7 @@ extends Validator[A, Params[P], RState]
   }
 }
 
-case class RBFConvergenceStopCriterion[P <: BFParams]
+case class RBFConvergenceStopCriterion[P: BasisFunction]
 (count: Long, epsilon: Double)
 extends ConvergenceStopCriterion[Params[P]]
 {

@@ -9,7 +9,7 @@ import spire.algebra._
 import spire.implicits._
 import spire.random._
 
-import breeze.linalg.{DenseVector, DenseMatrix, Transpose}
+import breeze.linalg.Transpose
 import breeze.generic.{UFunc, MappingUFunc}
 
 case class TestA[D <: Func, T <: DFunc[D]](transferU: T)

@@ -2,32 +2,35 @@ package tryp
 package mi
 package rbf
 
-import spire.math._
-import spire.algebra._
-import spire.implicits._
-import spire.random._
-
-class RBFSpec
+class IrisSpec
 extends Spec
 {
   def is = s2"""
   main $main
   """
 
-  type P = GaussParams
+  type P = GaussBF
 
-  val steps = 10000
+  val steps = 1000
 
-  val epsilon = 0.00001
+  val centroids = 3
 
-  def trials = 1.some
+  val eta = 0.1d
+
+  val lambda = 2d
+
+  val epsilon = 0.000000001d
+
+  // def trials = None
+  def trials = Some(1)
 
   lazy val data = Iris.loadNel
 
   val cost = QuadraticError
 
   implicit lazy val conf =
-    RBFLearnConf.default()
+    RBFLearnConf.default[P, Iris](steps, centroids, eta, lambda,
+      LearnConf.Batch)
 
   val stop = RBFConvergenceStopCriterion[P](steps, epsilon)
 
@@ -43,10 +46,9 @@ extends Spec
     val error = stats.map(_.total).sum / data.length
     results.foreach {
       case Model(Estimation(iter, _), Validation(data)) =>
-        hl
-        if (iter == steps) p("training hasn't converged")
-        else p(s"training converged after $iter iterations")
-        data.unwrap.foreach { res => p(res.info) }
+        if (iter == steps) log.info("training hasn't converged")
+        else log.info(s"training converged after $iter iterations")
+        data.unwrap.foreach { res => log.info(res.info) }
     }
     error must be_<=(0.0003d * trials.getOrElse(data.length))
   }

@@ -10,7 +10,7 @@ import spire.implicits._
 import spire.random._
 
 import breeze.math._
-import breeze.linalg.{DenseVector, DenseMatrix, Transpose}
+import breeze.linalg.Transpose
 
 trait Node
 

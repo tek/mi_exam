@@ -6,7 +6,7 @@ import atto.syntax.stream.all._
 
 import scalaz.stream._
 
-import breeze.linalg.{DenseVector, DenseMatrix, Transpose}
+import breeze.linalg.Transpose
 
 import spire.implicits._
 
@@ -28,7 +28,7 @@ extends IrisInstances
       f ← manyN(4, feat)
       _ ← string("Iris-")
       n ← takeText
-    } yield Iris(DenseVector(f: _*), n)
+    } yield Iris(Col(f: _*), n)
   }
 
   lazy val datadir = sys.props.get("datadir").getOrElse(".")
@@ -62,5 +62,7 @@ trait IrisInstances
       def feature(a: Iris) = a.feature
 
       def value(a: Iris) = Iris.values.get(a.name).getOrElse(-1.0)
+
+      override def range = 10d
     }
 }

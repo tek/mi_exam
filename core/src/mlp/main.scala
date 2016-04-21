@@ -12,7 +12,7 @@ import spire.algebra._
 import spire.implicits._
 import spire.random._
 
-import breeze.linalg.{DenseVector, DenseMatrix, Transpose}
+import breeze.linalg.Transpose
 import breeze.generic.{UFunc, MappingUFunc}
 import breeze.linalg.sum
 import breeze.numerics.abs
@@ -82,11 +82,11 @@ extends WeightInitializer
       .sliding(2)
       .collect {
         case List(a, b) =>
-          DenseMatrix.rand(b, a) :* (1.0 / a)
+          Mat.rand(b, a) :* (1.0 / a)
       }
       .toList match {
         case List(a, b @ _*) => Nel(a, b: _*)
-        case _ => Nel(DenseMatrix.fill(1, 1)(1.0))
+        case _ => Nel(Mat.fill(1, 1)(1.0))
       }
   }
 }

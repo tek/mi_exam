@@ -22,3 +22,5 @@ with cats.std.AllInstances
 with Fu.ToFuOps
 with Fu2.ToFu2Ops
 with Sample.ToSampleOps
+with monocle.function.NonEmptyVectorIndexLens
+with ToMatOps
