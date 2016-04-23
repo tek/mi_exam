@@ -24,3 +24,4 @@ with Fu2.ToFu2Ops
 with Sample.ToSampleOps
 with monocle.function.NonEmptyVectorIndexLens
 with ToMatOps
+with ModelState.ToModelStateOps

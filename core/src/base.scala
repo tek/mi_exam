@@ -15,12 +15,12 @@ extends ModelClass
   override def toString = name
 }
 
-@typeclass trait Sample[A]
+@typeclass trait Sample[S]
 {
   def classes: Map[Double, ModelClass]
-  def cls(a: A): ModelClass
-  def feature(a: A): Col
-  def value(a: A): Double
+  def cls(a: S): ModelClass
+  def feature(a: S): Col
+  def value(a: S): Double
   def range: Double = 1d
 
   def predictedClass(pred: Double): ModelClass = {
@@ -30,59 +30,59 @@ extends ModelClass
   }
 }
 
-trait StopCriterion[P]
+trait StopCriterion[M]
 {
-  def apply(iteration: Long, params: P, prev: Option[P]): Boolean
+  def apply(iteration: Long, params: M, prev: Option[M]): Boolean
 }
 
-case class StepCountStopCriterion[P](count: Long)
-extends StopCriterion[P]
+case class StepCountStopCriterion[M](count: Long)
+extends StopCriterion[M]
 {
-  def apply(iteration: Long, params: P, prev: Option[P]) = iteration >= count
+  def apply(iteration: Long, params: M, prev: Option[M]) = iteration >= count
 }
 
-@typeclass trait ParamDiff[P]
+@typeclass trait ParamDiff[M]
 {
-  def diff(a: P, b: P): Double
+  def diff(a: M, b: M): Double
 }
 
-case class ConvergenceStopCriterion[P: ParamDiff](count: Long, epsilon: Double)
-extends StopCriterion[P]
+case class ConvergenceStopCriterion[M: ParamDiff](count: Long, epsilon: Double)
+extends StopCriterion[M]
 {
-  val steps = StepCountStopCriterion[P](count)
+  val steps = StepCountStopCriterion[M](count)
 
-  lazy val diff = ParamDiff[P].diff _
+  lazy val diff = ParamDiff[M].diff _
 
-  def apply(iteration: Long, params: P, prev: Option[P]) = {
+  def apply(iteration: Long, params: M, prev: Option[M]) = {
     steps(iteration, params, prev) ||
       prev.exists(a => diff(params, a) < epsilon)
   }
 }
 
-case class Estimation[P](iterations: Long, params: P)
+case class Estimation[M](iterations: Long, params: M)
 
-trait EstimationStep[P]
+trait EstimationStep[M]
 {
-  def apply(params: P): P
+  def apply(params: M): M
 }
 
-abstract class Estimator[A: Sample, P]
+abstract class Estimator[S: Sample, M]
 {
-  def data: Nel[A]
+  def data: Nel[S]
 
-  def initialParams: P
+  def initialParams: M
 
-  val step: EstimationStep[P]
+  val step: EstimationStep[M]
 
   val featureCount = data.head.feature.length
 
-  def result(iteration: Long, par: P) = {
+  def result(iteration: Long, par: M) = {
     Estimation(iteration, par)
   }
 
-  def run(stop: StopCriterion[P]): Estimation[P] = {
+  def run(stop: StopCriterion[M]): Estimation[M] = {
     @tailrec
-    def go(iteration: Long, par: P, prev: Option[P]): Estimation[P] = {
+    def go(iteration: Long, par: M, prev: Option[M]): Estimation[M] = {
       if (stop(iteration, par, prev)) result(iteration, par)
       else go(iteration + 1, step(par), Some(par))
     }
@@ -90,20 +90,31 @@ abstract class Estimator[A: Sample, P]
   }
 
   def runSteps(count: Long) = {
-    run(StepCountStopCriterion[P](count))
+    run(StepCountStopCriterion[M](count))
   }
 }
 
-case class Prediction[A, P, O](sample: A, param: P, pred: O)
-
-trait Predictor[P, O]
+trait ModelCreator[P, M]
 {
-  def apply[A: Sample](sample: A, param: P): Prediction[A, P, O]
+  def run(est: Estimation[P]): M
 }
 
-trait Optimizer[P, O]
+case class IdModelCreator[P]()
+extends ModelCreator[P, P]
 {
-  def apply[A: Sample](a: Prediction[A, P, O]): P
+  def run(est: Estimation[P]): P = est.params
+}
+
+case class Prediction[S, M, V](sample: S, model: M, value: V)
+
+trait Predictor[M, V]
+{
+  def apply[S: Sample](sample: S, model: M): Prediction[S, M, V]
+}
+
+trait Optimizer[M, V]
+{
+  def apply[S: Sample](a: Prediction[S, M, V]): M
 }
 
 object LearnConf
@@ -115,4 +126,9 @@ object LearnConf
 
   case object Online
   extends LearnMode
+}
+
+@typeclass trait ModelState[S]
+{
+  def output(a: S): Double
 }

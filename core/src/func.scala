@@ -171,3 +171,14 @@ object Fu2
 {
   implicit def func2Fu[A <: Func2]: Fu2[A] = new Fu2[A] {}
 }
+
+object Linalg
+{
+  def randWeightMat(a: Int, b: Int): Mat = {
+    Mat.rand(b, a) :* (1.0 / a)
+  }
+
+  def randWeightCol(a: Int): Col = {
+    Col.rand(a) :* (1.0 / a)
+  }
+}

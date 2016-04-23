@@ -5,50 +5,17 @@ package mlp
 import scalaz.std.list.{listInstance => zListInstance}
 import scalaz.syntax.zip._
 
-import cats._, data.{Func => _, _}
-
 import spire.math._
 import spire.algebra._
 import spire.implicits._
 import spire.random._
 
-import breeze.linalg.Transpose
-import breeze.generic.{UFunc, MappingUFunc}
 import breeze.linalg.sum
 import breeze.numerics.abs
-import UFunc.UImpl
-
-object Logistic
-{
-  def main(a: Double, beta: Double) = 1.0 / (1.0 + exp(-beta * a))
-}
-
-case class Logistic(beta: Double)
-extends DFunc[LogisticDeriv]
-{
-  implicit val doubleImpl = new DI {
-    def apply(a: Double) = Logistic.main(a, beta)
-  }
-
-  lazy val deriv = new LogisticDeriv(beta)
-}
-
-class LogisticDeriv(beta: Double)
-extends DFunc[NullFuncBase]
-{
-  implicit val doubleImpl = new DI {
-    def apply(a: Double) = {
-      val fx = Logistic.main(a, beta)
-      fx * (1 - fx)
-    }
-  }
-
-  def deriv = NullFunc
-}
 
 case class LayerState(in: Col, out: Col)
 
-case class PState(layers: Nel[LayerState])
+case class MLP(layers: Nel[LayerState])
 {
   def addLayer(in: Col, out: Col) =
     copy(layers.combine(Nel(LayerState(in, out))))
@@ -62,10 +29,32 @@ case class PState(layers: Nel[LayerState])
   def value = output
 }
 
-object PState
+object MLP
 {
-  def init[T <: Func](out: Col, tfDeriv: T) = {
-    PState(Nel(LayerState(tfDeriv.f(out), out)))
+  def init[T <: Func](out: Col, tfDeriv: T, weights: Weights) = {
+    MLP(Nel(LayerState(tfDeriv.f(out), out)))
+  }
+
+  implicit def instance_ModelState_MLP: ModelState[MLP] =
+    new ModelState[MLP] {
+      def output(a: MLP) = a.output
+    }
+
+  implicit def instance_ParamDiff_Weights: ParamDiff[Weights] =
+    new ParamDiff[Weights] {
+      def diff(a: Weights, b: Weights) = 
+        a.unwrap.zip(b.unwrap)
+          .map { case (a, b) => sum(abs(a :- b)) / a.size }
+          .sum
+    }
+
+  def msv[S: Sample]
+  (data: Nel[S], conf: MLPLearnConf, sconf: ModelSelectionConf) = {
+    val stop = ConvergenceStopCriterion(sconf.steps, sconf.epsilon)
+    lazy val validator = CrossValidator[S, Weights, Weights, MLP](data, sconf,
+      MLPEstimator[S](_, conf), _ => IdModelCreator(),
+      MLPValidator[S](_, conf), stop)
+    MLPModelSelectionValidator(validator, conf.cost)
   }
 }
 
@@ -100,9 +89,15 @@ extends WeightInitializer
 }
 
 case class MLPLearnConf
-(transfer: DFunc[_ <: Func], eta: Double, layers: Nel[Int], steps: Int,
+(transfer: DFunc[_ <: Func], eta: Double, layers: Nel[Int],
   initializer: WeightInitializer, cost: DFunc2[_ <: Func2], bias: Boolean,
   mode: LearnConf.LearnMode)
+  {
+    def initialParams(features: Int) = {
+      val f = features + (if (bias) 1 else 0)
+      initializer(f, layers, 1)
+    }
+  }
 
 object MLPLearnConf
 {
@@ -112,45 +107,44 @@ object MLPLearnConf
     transfer: DFunc[_ <: Func] = Logistic(0.5),
     eta: Double = 0.8,
     layers: Nel[Int] = Nel(4, 3),
-    steps: Int = 1000,
     initializer: WeightInitializer = RandomWeights,
     cost: DFunc2[_ <: Func2] = QuadraticError,
     bias: Boolean = true,
     mode: LearnMode = Batch
   ) =
-      MLPLearnConf(transfer, eta, layers, steps, initializer, cost, bias, mode)
+      MLPLearnConf(transfer, eta, layers, initializer, cost, bias, mode)
 }
 
 case class MLPPredictor(config: MLPLearnConf)
-extends Predictor[Weights, PState]
+extends Predictor[Weights, MLP]
 {
   def transfer = config.transfer
 
-  def input[A: Sample](sample: A) = {
+  def input[S: Sample](sample: S) = {
     if (config.bias) Col.vertcat(Col(1d), sample.feature)
     else sample.feature
   }
 
-  def layer(state: PState, w: Mat) = {
+  def layer(state: MLP, w: Mat) = {
     val in = w * state.layers.last.out
     val out = transfer.f(in)
     state.addLayer(in, out)
   }
 
-  def apply[A: Sample](sample: A, weights: Weights)
-  : Prediction[A, Weights, PState] = {
-    val z = PState.init(input(sample), transfer.deriv)
+  def apply[S: Sample](sample: S, weights: Weights)
+  : Prediction[S, Weights, MLP] = {
+    val z = MLP.init(input(sample), transfer.deriv, weights)
     Prediction(sample, weights, weights.foldLeft(z)(layer))
   }
 }
 
 case class BackProp
 (transfer: DFunc[_ <: Func], cost: DFunc2[_ <: Func2])
-extends Optimizer[Weights, PState]
+extends Optimizer[Weights, MLP]
 {
   lazy val deriv = transfer.deriv
 
-  def backprop(state: PState, weights: Weights): Layers = {
+  def backprop(state: MLP, weights: Weights): Layers = {
     val hPrime = state.in.map(deriv.f(_)).reverse
     weights
       .toList
@@ -159,32 +153,31 @@ extends Optimizer[Weights, PState]
       .init
       .foldLeft(Nel(hPrime.head)) {
         case (z, (w, h)) =>
-          val d = h :* (w.t * z.head)
-          OneAnd(d, z.unwrap)
+          (h :* (w.t * z.head)) :: z
       }
   }
 
-  def modelGradient(state: PState, deltas: Layers): Weights = {
+  def modelGradient(state: MLP, deltas: Layers): Weights = {
     deltas
       .fzip(state.out)
       .map { case (a, b) => a * b.t }
   }
 
-  def apply[A: Sample](pred: Prediction[A, Weights, PState]): Weights = {
-    val state = pred.pred
-    val back = backprop(state, pred.param)
+  def apply[S: Sample](pred: Prediction[S, Weights, MLP]): Weights = {
+    val state = pred.value
+    val back = backprop(state, pred.model)
     val mg = modelGradient(state, back)
     val ce = cost.deriv.f(pred.sample.value, state.output)
     mg.map(_ * ce)
   }
 }
 
-abstract class MLPStep[A: Sample]
+abstract class MLPStep[S: Sample]
 extends EstimationStep[Weights]
 {
   val config: MLPLearnConf
 
-  val data: Nel[A]
+  val data: Nel[S]
 
   val eta = config.eta / data.length
 
@@ -194,7 +187,7 @@ extends EstimationStep[Weights]
 }
 
 // TODO parallel computing
-case class BatchStep[A: Sample](data: Nel[A], config: MLPLearnConf)
+case class BatchStep[S: Sample](data: Nel[S], config: MLPLearnConf)
 extends MLPStep
 {
   def apply(weights: Weights): Weights = {
@@ -205,7 +198,7 @@ extends MLPStep
   }
 }
 
-case class OnlineStep[A: Sample](data: Nel[A], config: MLPLearnConf)
+case class OnlineStep[S: Sample](data: Nel[S], config: MLPLearnConf)
 extends MLPStep
 {
   def apply(weights: Weights): Weights = {
@@ -216,51 +209,37 @@ extends MLPStep
   }
 }
 
-case class MLPEstimator[A: Sample]
-(data: Nel[A], config: MLPLearnConf)
-extends Estimator[A, Weights]
+case class MLPEstimator[S: Sample]
+(data: Nel[S], config: MLPLearnConf)
+extends Estimator[S, Weights]
 {
-  lazy val initialParams = config.initializer(featureCount, config.layers, 1)
+  lazy val initialParams = config.initialParams(featureCount)
 
-  lazy val step: MLPStep[A] = {
+  lazy val step: MLPStep[S] = {
     if (config.mode == LearnConf.Batch) BatchStep(data, config)
     else OnlineStep(data, config)
   }
 }
 
-case class MLPValidation[A](data: A, pred: PState)(implicit sample: Sample[A])
-extends SampleValidation[A, PState]
+case class MLPSV[S: Sample](data: S, state: MLP)
+extends SampleValidation[S, MLP]
 {
-  lazy val predictedValue = pred.output
+  def output = state.output
 
-  lazy val predictedClass = sample.predictedClass(predictedValue)
+  lazy val predictedClass = Sample[S].predictedClass(output)
 
-  def actualClass = data.cls
-
-  def success = actualClass == predictedClass
-
-  def successInfo = {
-    if (success) s"correct class"
-    else s"wrong class: $predictedClass ($predictedValue)"
-  }
-
-  def info =
-    s"${actualClass} (${data.feature.data.mkString(", ")}): $successInfo"
-
-  def error(cost: Func2) = {
-    cost.f(data.value, pred.output)
-  }
+  def error(cost: Func2) = cost.f(data.value, output)
 }
 
-case class MLPValidator[A: Sample]
-(data: Nel[A], config: MLPLearnConf)
-extends Validator[A, Weights, PState]
+case class MLPValidator[S: Sample]
+(data: Nel[S], config: MLPLearnConf)
+extends Validator[S, Weights, MLP]
 {
   lazy val predict = MLPPredictor(config)
 
-  def verify(weights: Weights)(sample: A): SampleValidation[A, PState] = {
+  def verify(weights: Weights)(sample: S): SampleValidation[S, MLP] = {
     val pred = predict(sample, weights)
-    MLPValidation(sample, pred.pred)
+    MLPSV(sample, pred.value)
   }
 
   def run(weights: Weights) = {
@@ -269,19 +248,6 @@ extends Validator[A, Weights, PState]
   }
 }
 
-case class MLPConvergenceStopCriterion(count: Long, epsilon: Double)
-extends StopCriterion[Nel[Mat]]
-{
-  val steps = StepCountStopCriterion[Nel[Mat]](count)
-
-  def apply(iteration: Long, params: Nel[Mat], prev: Option[Nel[Mat]]) = {
-    steps(iteration, params, prev) ||
-      prev.exists(a => diff(params, a) < epsilon)
-  }
-
-  def diff(params: Nel[Mat], prev: Nel[Mat]) = {
-      params.unwrap.zip(prev.unwrap)
-        .map { case (a, b) => sum(abs(a :- b)) / a.size }
-        .sum
-  }
-}
+case class MLPModelSelectionValidator[S]
+(cross: CrossValidator[S, Weights, Weights, MLP], cost: Func2)
+extends ModelSelectionValidator[S, Weights, MLP]

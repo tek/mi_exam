@@ -2,13 +2,6 @@ package tryp
 package mi
 package mlp
 
-import spire.math._
-import spire.algebra._
-import spire.implicits._
-import spire.random._
-
-import breeze.linalg.Transpose
-
 trait InternalBase
 extends Spec
 {
@@ -48,9 +41,9 @@ extends Spec
 
   def optimizer = train.step.optimize
 
-  def forward = pred.pred
+  def forward = pred.value
 
-  lazy val backward = optimizer.backprop(forward, pred.param)
+  lazy val backward = optimizer.backprop(forward, pred.model)
 
   lazy val grad = optimizer.modelGradient(forward, backward)
 
@@ -72,8 +65,6 @@ extends InternalBase
 
   val layers = Nel(3)
 
-  val steps = 1
-
   def eta = 0.7
 
   def transfer = PseudoIdentity
@@ -93,7 +84,7 @@ extends InternalBase
     ))
 
   lazy val conf =
-    MLPLearnConf.default(transfer, eta, layers, steps, weights, costFun, bias)
+    MLPLearnConf.default(transfer, eta, layers, weights, costFun, bias)
 
   def input = {
     forward.in must_== Nel(Col(x0, 0d), Col(h1_0, 0d, 0d), Col(h1_0))
@@ -145,8 +136,6 @@ extends InternalBase
 
   val layers = Nel(3)
 
-  val steps = 1
-
   def beta = 1d
 
   def eta = 0.7
@@ -170,7 +159,7 @@ extends InternalBase
     ))
 
   lazy val conf =
-    MLPLearnConf.default(tr, eta, layers, steps, weights, costFun, bias)
+    MLPLearnConf.default(tr, eta, layers, weights, costFun, bias)
 
   lazy val sample = Dat(Col(x0, 0d), 1d)
 
@@ -198,58 +187,5 @@ extends InternalBase
   def cost = {
     val err = s2_0 - sample.value
     costError must beCloseTo(err, 0.001)
-  }
-}
-
-class IrisSpec
-extends Spec
-{
-  def is = s2"""
-  main $main
-  """
-
-  val layers = Nel(4)
-
-  val steps = 10000
-
-  val epsilon = 0.00001
-
-  def beta = 0.8
-
-  def eta = 0.25
-
-  def bias = true
-
-  def trials = 1.some
-
-  lazy val transfer = new Logistic(beta)
-
-  lazy val data = Iris.loadNel
-
-  val cost = QuadraticError
-
-  implicit lazy val conf =
-    MLPLearnConf.default(transfer, eta, layers, steps, RandomWeights, cost,
-      bias, LearnConf.Online)
-
-  val stop = MLPConvergenceStopCriterion(steps, epsilon)
-
-  lazy val validator = CrossValidator[Iris, Weights, PState](
-    15, data, MLPEstimator[Iris](_, conf), MLPValidator[Iris](_, conf),
-    stop, trials)
-
-  def main = {
-    val result = XorT(validator.result)
-    val errors = result.swap.collectRight
-    val results = result.collectRight
-    val stats = results.map(_.validation.stats(cost))
-    val error = stats.map(_.total).sum / data.length
-    results.foreach {
-      case Model(Estimation(iter, _), Validation(data)) =>
-        if (iter == steps) log.info("training hasn't converged")
-        else log.info(s"training converged after $iter iterations")
-        data.unwrap.foreach { res => log.info(res.info) }
-    }
-    error must be_<=(0.0003d * trials.getOrElse(data.length))
   }
 }

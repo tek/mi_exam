@@ -7,7 +7,11 @@ extends MultiBuild("mi_exam", deps = MiDeps)
 {
   lazy val core = tdp("core")
 
-  lazy val unit = ("unit" << core)
+  lazy val mlp = "mlp" << core
+
+  lazy val rbf = "rbf" << core
+
+  lazy val unit = ("unit" << mlp << rbf)
     .logback("tag" -> "mi")
     .settingsV(
       fork := true,

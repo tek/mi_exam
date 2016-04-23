@@ -38,7 +38,6 @@ object Dat
 trait InternalBase
 extends Spec
 {
-
   type BF = GaussBF
 
   val sample: Dat
@@ -47,19 +46,27 @@ extends Spec
 
   def bias = false
 
-  lazy val train = RBFEstimator(Nel(sample), conf)
+  lazy val data = Nel(sample)
+
+  lazy val train = RBFEstimator(data, conf)
 
   def step = train.step
 
-  lazy val initW = train.initialParams
+  lazy val predict = RBFPredictor[BF](conf)
+
+  lazy val creator = RBFModelCreator(data, conf)
+
+  lazy val validator = RBFValidator[Dat, BF](data, conf)
+
+  lazy val initP = train.initialParams
+
+  lazy val kmeans = KMeans(Nel(sample.feature), conf, initP)
 
   lazy val f1 = sample.feature(0)
 
-  lazy val pred = step.predict(sample, train.initialParams)
+  lazy val pred = predict(sample, RBFNet(initP, Linalg.randWeightCol(1)))
 
-  def optimizer = step.optimize
-
-  def forward = pred.pred
+  def forward = pred.value
 }
 
 class StepSpec
@@ -73,7 +80,7 @@ extends InternalBase
   update weights $updateWeights
   """
 
-  val centroids = 3
+  val rbfs = 3
 
   val steps = 1
 
@@ -99,15 +106,13 @@ extends InternalBase
 
   lazy val s3 = 1d
 
-  lazy val bf = Nev(GaussBF(c1, s1), GaussBF(c2, s2), GaussBF(c3, s3))
+  lazy val bf = RBFs(Nev(GaussBF(c1, s1), GaussBF(c2, s2), GaussBF(c3, s3)))
 
-  lazy val params = Params(weights, bf)
+  lazy val params = RBFNet(bf, weights)
 
-  lazy val initialization = new ManualInitialization(params)
+  lazy val init = new ManualInitialization(bf)
 
-  lazy val conf =
-    RBFLearnConf.default[BF, Dat](steps, centroids, eta, lambda,
-      LearnConf.Batch, initialization = Some(initialization))
+  lazy val conf = RBFLearnConf.default[BF, Dat](rbfs, eta, lambda, Some(init))
 
   lazy val newC = c3 + (x - c3) * eta
 
@@ -117,27 +122,27 @@ extends InternalBase
 
   lazy val d3 = lambda * euclideanDistance(newC, c2)
 
-  lazy val updatedBf = step.updateBf(params.bf)
+  lazy val updatedBf = step(bf)
 
-  def closest = step.closest(x, params.bf.map(_.center))._1 must_== c3
+  def closest = kmeans.closest(x, params.bf.map(_.center))._1 must_== c3
 
   def updateCenterInternal = {
     val s = 4d
     val a = GaussBF(Col(1d, 2d), s)
     val diff = Col(2d, 2d)
-    UpdateParams[GaussBF].updateCenter(0, diff)(Nev(a)).head must_==
+    UpdateParams[GaussBF].updateCenter(0, diff)(RBFs(Nev(a))).bf.head must_==
       GaussBF(Col(3d, 4d), s)
   }
 
   def updateCenter = {
-    step.updateCenter(params.bf, x) must_==
-      Nev(GaussBF(c1, s1), GaussBF(c2, s2), GaussBF(newC, s3))
+    kmeans.updateCenter(params.rbfs, x) must_==
+      RBFs(Nev(GaussBF(c1, s1), GaussBF(c2, s2), GaussBF(newC, s3)))
   }
 
   def updateBf = updatedBf must_==
-      Nev(GaussBF(c1, d1), GaussBF(c2, d2), GaussBF(newC, d3))
+      RBFs(Nev(GaussBF(c1, d1), GaussBF(c2, d2), GaussBF(newC, d3)))
 
   def updateWeights = {
-    step.updateWeights(updatedBf) must_== Params(Col(0.5, 0.0, 0.5), updatedBf)
+    creator.weights(updatedBf) must_== Col(0.5, 0.0, 0.5)
   }
 }
