@@ -11,6 +11,7 @@
     </encoder>
   </appender>
   <logger name="tryp" level="debug" />
+  <logger name="org" level="info" />
   <root>
     <appender-ref ref="FILE" />
     <appender-ref ref="STDOUT" />

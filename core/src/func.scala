@@ -3,7 +3,7 @@ package mi
 
 import breeze.generic.{UFunc, MappingUFunc}
 import breeze.numerics._
-import breeze.linalg.support.CanMapValues
+import breeze.linalg.support.{CanMapValues, ScalarOf}
 
 import simulacrum._
 
@@ -129,7 +129,7 @@ object ImplImp
   implicit def anyImplImp[A]
   (implicit
     cmv: CanMapValues[A, Double, Double, A],
-    hh: CanMapValues.HandHold[A, Double]
+    hh: ScalarOf[A, Double]
     ): ImplImp[A] =
     new ImplImp[A] {
       def impl[B <: Func](b: B) = {
@@ -142,6 +142,19 @@ object ImplImp
         import b._
         b.canMapV1DV[A, Double, Double, Double, A]
           .asInstanceOf[UFunc.UImpl2[B, A, A, A]]
+      }
+    }
+
+  implicit lazy val doubleImplImp: ImplImp[Double] =
+    new ImplImp[Double] {
+      def impl[B <: Func](b: B) = {
+        b.doubleImpl
+          .asInstanceOf[UFunc.UImpl[B, Double, Double]]
+      }
+
+      def impl2[B <: Func2](b: B) = {
+        b.double2Impl
+          .asInstanceOf[UFunc.UImpl2[B, Double, Double, Double]]
       }
     }
 }

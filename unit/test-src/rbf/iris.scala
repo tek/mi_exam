@@ -19,3 +19,10 @@ extends IrisSpecBase
 
   lazy val msv = RBF.msv(data, conf, sconf)
 }
+
+class PlottedIrisSpec
+extends IrisSpec
+with PlottedIrisSpecBase
+{
+
+}

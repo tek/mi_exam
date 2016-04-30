@@ -3,6 +3,8 @@ package mi
 
 import breeze.linalg.{DenseVector, DenseMatrix, Transpose}
 
+import simulacrum._
+
 trait MITypes
 {
   type Mat = DenseMatrix[Double]
@@ -25,3 +27,9 @@ with Sample.ToSampleOps
 with monocle.function.NonEmptyVectorIndexLens
 with ToMatOps
 with ModelState.ToModelStateOps
+with PullFunctions
+with StreamInstances
+with ToXorStreamOps
+with TaskInstances
+{
+}

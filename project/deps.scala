@@ -7,7 +7,8 @@ extends tryp.Deps
 {
   override def deps = super.deps ++ Map(
     "core" → core,
-    "macro-console" → (macroConsole ++ core)
+    "viz" → viz,
+    "macro-console" → (macroConsole ++ core ++ viz)
   )
 
   lazy val imp = ids(
@@ -19,11 +20,26 @@ extends tryp.Deps
     "org.scalanlp" %% "breeze-natives" % "+",
     "org.scalanlp" %% "breeze-viz" % "+",
     "org.spire-math" %% "spire" % "+",
-    "org.tpolecat" %% "atto-stream"  % "+"
+    "org.tpolecat" %% "atto-stream"  % "+",
+    // dd("co.fs2" %% "fs2-core" % "+", "functional-streams-for-scala/fs2",
+    //   "core", "io").no,
+    dd("co.fs2" %% "fs2-io" % "+", "functional-streams-for-scala/fs2",
+      "core", "io").no,
+    dd("co.fs2" %% "fs2-cats" % "+", "functional-streams-for-scala/fs2-cats").no
   ) ++ imp
 
+  lazy val viz = commonTestIdsScoped ++ ids(
+    "org.http4s" %% "http4s-blaze-client" % "0.14.0a-SNAPSHOT",
+    "org.http4s" %% "http4s-circe" % "0.14.0a-SNAPSHOT",
+    "io.circe" %% "circe-core" % "+",
+    "io.circe" %% "circe-generic" % "+",
+    "io.circe" %% "circe-parser" % "+",
+    dd("tryp" %% "pulsar-unit-core" % "+", "tek/pulsar", "unit-core")
+  )
+
+  override val specsV = "3.7"
+
   override lazy val unit = super.unit ++ ids(
-    "org.specs2" %% "specs2-scalacheck" % "+",
     dd("tryp" %% "pulsar-unit-core" % "+", "tek/pulsar", "unit-core")
   ) ++ imp
 

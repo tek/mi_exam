@@ -1,6 +1,21 @@
 package tryp
 package mi
 
+import fs2._
+import fs2.util._
+import Step._
+import Stream.Handle
+
+import cats.data.Xor._
+
+object ModelSelection
+{
+  type Result[A, P, O] =
+    Stream[Task, Estimation[P] Xor ModelSelection[A, P, O]]
+}
+
+import ModelSelection._
+
 case class ModelSelection[A, P, O]
 (estimation: Estimation[P], validation: Validation[A, O])
 
@@ -13,7 +28,7 @@ trait ModelSelector[A, P, O]
 
   def data: Nel[A]
 
-  def result: List[Xor[String, ModelSelection[A, P, O]]]
+  def result: List[String Xor Result[A, P, O]]
 
   def validatedCount: Int
 }
@@ -24,9 +39,11 @@ case class CrossValidator[A, P, M, O](data: Nel[A],
   validator: Nel[A] => Validator[A, M, O], stop: StopCriterion[P])
 extends ModelSelector[A, P, O]
 {
-  def result = intervals.map(interval).toList
+  type Trans[A, B] = Handle[Task, A] => Pull[Task, B, Handle[Task, B]]
 
-  def interval(start: Int): String Xor ModelSelection[A, P, O] = {
+  def result: List[String Xor Result[A, P, O]] = intervals.map(interval).toList
+
+  def interval(start: Int): String Xor Result[A, P, O] = {
     separate(start)
       .map { case (a, b) => learn(a, b) }
   }
@@ -50,29 +67,86 @@ extends ModelSelector[A, P, O]
       l.slice(start, end).nelXor(sliceError)
   }
 
-  private[this] def learn(est: Nel[A], valid: Nel[A]) = {
-    val estimation = estimator(est).run(stop)
-    val model = modelCreator(est).run(estimation)
-    ModelSelection(estimation, validator(valid).run(model))
+  private[this] def learn(trainData: Nel[A], testData: Nel[A])
+  : Stream[Task, Estimation[P] Xor ModelSelection[A, P, O]] = {
+    type In = Estimation[P]
+    import Pull._
+    type Out = In Xor In
+    def trans(z: Option[In]): Trans[In, Out] = receive1Option {
+      case Some(a #: h) =>
+        output1(a.left[In]) >> trans(Some(a))(h)
+      case None => z match {
+        case Some(e) => output1(e.right[In]) >> done
+        case None => done
+      }
+    }
+    estimator(trainData).stream(stop).open.flatMap(trans(None)).run
+      .map(_.map(e => (e -> modelCreator(trainData).run(e))))
+      .map(_.map {
+        case (e, m) => ModelSelection(e, validator(testData).run(m))
+      })
   }
 }
 
 case class ModelSelectionValidation[A, P, O]
-(results: List[ModelSelection[A, P, O]], stats: List[EstimationStats])
+(results: Vector[ModelSelection[A, P, O]], stats: Vector[EstimationStats],
+ config: ModelSelectionConf, totalCount: Int)
 {
   lazy val totalError = stats.map(_.totalError).sum
 
   lazy val foldError = totalError / results.length
 
-  def info: List[ModelTrainInfo[A, P, O]] =
+  def info: Vector[ModelTrainInfo[A, P, O]] =
     results.zip(stats).map { case (a, b) => ModelTrainInfo(a, b) }
 
   def successes = stats.map(_.successes).sum
+
+  def printer = MSPrinter(this, config, totalCount)
+}
+
+case class MSPrinter(validation: ModelSelectionValidation[_, _, _],
+  config: ModelSelectionConf, totalCount: Int)
+extends Logging
+{
+  override def loggerName = List("ms")
+
+  def short() = all(false)
+
+  def verbose() = all(true)
+
+  def fold(info: ModelTrainInfo[_, _, _], verbose: Boolean) = {
+    val ModelSelection(Estimation(iter, _), Validation(data)) = info.model
+    val stats = info.stats
+    log.info("")
+    if (iter == config.steps) log.info("training hasn't converged")
+    else log.info(s"training converged after $iter iterations")
+    log.info(
+      s"${stats.successes.greenString}/${stats.count} classified correctly")
+    log.info(f"fold error: ${stats.totalError}%f")
+    if (verbose) data.map(_.info).map(log.info(_))
+  }
+
+  def all(verbose: Boolean) = {
+    validation.info.foreach(fold(_, verbose))
+    log.info("")
+    log.info("total error:" + f" $totalError%g".red)
+    log.info("average fold error:" + f" $foldError%g".yellow)
+    log.info(s"${totalSuccesses.greenString}/$totalCount classified correctly")
+  }
+
+  def foldError = validation.foldError
+
+  def totalError = validation.totalError
+
+  def totalSuccesses = validation.successes
 }
 
 abstract class ModelSelectionValidator[A, P, O]
 extends Logging
 {
+  private[this] type E = Estimation[P]
+  private[this] type M = ModelSelection[A, P, O]
+
   override def loggerName = List("msv")
 
   val cross: ModelSelector[A, P, O]
@@ -87,39 +161,19 @@ extends Logging
 
   lazy val results = result.collectRight
 
-  lazy val stats = results.map(_.validation.stats(cost))
-
-  lazy val validation = ModelSelectionValidation(results, stats)
-
-  def foldError = validation.foldError
-
-  def totalError = validation.totalError
-
-  def totalSuccesses = validation.successes
-
   def totalCount = cross.validatedCount
 
-  def logFold(info: ModelTrainInfo[A, P, O], verbose: Boolean) = {
-    val ModelSelection(Estimation(iter, _), Validation(data)) = info.model
-    val stats = info.stats
-    log.info("")
-    if (iter == config.steps) log.info("training hasn't converged")
-    else log.info(s"training converged after $iter iterations")
-    log.info(
-      s"${stats.successes.greenString}/${stats.count} classified correctly")
-    log.info(f"fold error: ${stats.totalError}%f")
-    if (verbose) data.map(_.info).map(log.info(_))
+  def unified = results.foldLeft(Stream.empty: Result[A, P, O])(_ ++ _)
+
+  def unsafeResult =
+    XorT.apply[Stream[Task, ?], E, M](unified)
+      .collectRight.runLog.run.unsafeRun
+
+  lazy val unsafeValidation = {
+    val res = unsafeResult
+    val stats = res.map(_.validation.stats(cost))
+    ModelSelectionValidation(res, stats, config, totalCount)
   }
 
-  def logInfo(verbose: Boolean) = {
-    validation.info.foreach(logFold(_, verbose))
-    log.info("")
-    log.info("total error:" + f" $totalError%g".red)
-    log.info("average fold error:" + f" $foldError%g".yellow)
-    log.info(s"${totalSuccesses.greenString}/$totalCount classified correctly")
-  }
-
-  def logInfoShort() = logInfo(false)
-
-  def logInfoVerbose() = logInfo(true)
+  def printer = MSPrinter(unsafeValidation, config, totalCount)
 }

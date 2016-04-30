@@ -1,0 +1,36 @@
+package tryp
+
+import cats._
+
+import fs2.Stream
+
+trait StreamInstances
+{
+  implicit def instance_MonadCombine_Stream[F[_]]: MonadCombine[Stream[F, ?]] =
+    new MonadCombine[Stream[F, ?]] {
+      def empty[A] = Stream.empty[F, A]
+
+      def pure[A](a: A): Stream[F, A] = Stream.emit(a)
+
+      def flatMap[A, B](a: Stream[F, A])
+      (f: A => Stream[F, B]): Stream[F, B] =
+        a flatMap f
+
+      def combineK[A](fa: Stream[F, A], fb: Stream[F, A]) = fa ++ fb
+    }
+}
+
+final class XorStreamOps[F[_], A, B](val self: Stream[F, A Xor B])
+extends AnyVal
+{
+  def stripW = self collect {
+    case cats.data.Xor.Right(a) => a
+  }
+}
+
+trait ToXorStreamOps
+{
+  implicit def ToXorStreamOps[F[_], A, B](v: Stream[F, A Xor B])
+  : XorStreamOps[F, A, B] =
+    new XorStreamOps(v)
+}

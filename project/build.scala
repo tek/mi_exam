@@ -6,13 +6,15 @@ object Build
 extends MultiBuild("mi_exam", deps = MiDeps)
 {
   lazy val core = tdp("core")
+    .logback("tag" -> "mi")
 
   lazy val mlp = "mlp" << core
 
   lazy val rbf = "rbf" << core
 
-  lazy val unit = ("unit" << mlp << rbf)
-    .logback("tag" -> "mi")
+  lazy val viz = "viz" << core
+
+  lazy val unit = ("unit" << mlp << rbf << viz)
     .settingsV(
       fork := true,
       javaOptions += {

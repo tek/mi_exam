@@ -27,14 +27,9 @@ extends IrisSpecBase
 
   lazy val transfer = new Logistic(beta)
 
-  implicit lazy val conf =
-    MLPLearnConf.default(transfer, eta, layers, RandomWeights,
-      bias = bias, mode = LearnConf.Online)
-
   lazy val msv = MLP.msv(data, conf, sconf)
 
-  def main = {
-    msv.logInfoShort()
-    msv.totalError must be_<=(margin)
-  }
+  lazy val conf =
+    MLPLearnConf.default(transfer, eta, layers, RandomWeights, bias = bias,
+      mode = LearnConf.Online)
 }

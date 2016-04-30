@@ -116,8 +116,8 @@ with ScalaCheck
     val lconf = 
       RBFLearnConf.default[GaussBF, Data](rbfs = classes.length, eta = 0.5d)
     val result = RBF.msv(data.shuffle, lconf, sconf)
-    result.logInfoShort()
+    result.printer.short()
     val margin = 1e-5d * (trials | data.length)
-    result.totalError must be_<=(margin)
+    result.unsafeValidation.totalError must be_<=(margin)
   }
 }
