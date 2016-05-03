@@ -21,11 +21,7 @@ extends tryp.Deps
     "org.scalanlp" %% "breeze-viz" % "+",
     "org.spire-math" %% "spire" % "+",
     "org.tpolecat" %% "atto-stream"  % "+",
-    // dd("co.fs2" %% "fs2-core" % "+", "functional-streams-for-scala/fs2",
-    //   "core", "io").no,
-    dd("co.fs2" %% "fs2-io" % "+", "functional-streams-for-scala/fs2",
-      "core", "io").no,
-    dd("co.fs2" %% "fs2-cats" % "+", "functional-streams-for-scala/fs2-cats").no
+    "org.python" % "jython" % "+"
   ) ++ imp
 
   lazy val viz = commonTestIdsScoped ++ ids(
@@ -34,7 +30,7 @@ extends tryp.Deps
     "io.circe" %% "circe-core" % "+",
     "io.circe" %% "circe-generic" % "+",
     "io.circe" %% "circe-parser" % "+",
-    dd("tryp" %% "pulsar-unit-core" % "+", "tek/pulsar", "unit-core")
+    dd("tryp" %% "pulsar-unit-core" % "+" % "test", "tek/pulsar", "unit-core")
   )
 
   override val specsV = "3.7"

@@ -11,8 +11,6 @@ import io.circe.syntax._
 
 import fs2._
 import fs2.util._
-import Step._
-import Stream.Handle
 
 import monocle.macros._
 
@@ -24,7 +22,7 @@ import headers._
 import client.blaze._
 import client.{Client, middleware}
 
-object Local
+private[viz] object Local
 {
   implicit def strat = Strategy.sequential
 
@@ -108,6 +106,12 @@ extends Logging
   def delete =
     fetchMethod(Method.DELETE)
 
+  def putIgnoreResponse =
+    asPut.runIgnoreResponse
+
+  def postIgnoreResponse =
+    asPost.runIgnoreResponse
+
   def /(path: String) =
     at(path)
 
@@ -128,7 +132,9 @@ case class Api(base: Uri)
   def /(path: String) = Api(base / path)
 }
 
-case class VisualizationUpdateCodec(series: List[List[Double]])
+case class VizDataCodec(series: List[List[Double]])
+
+case class VizUpdateCodec(data: VizDataCodec)
 
 case class VisualizationCreateCodec
 (`type`: String, description: String, series: List[List[Double]],
@@ -137,23 +143,20 @@ case class VisualizationCreateCodec
 
 case class Visualization
 (id: String, name: Option[String], description: Option[String])
-{
-  // def plot[A: Plot](a: A): VisualizationUpdateCodec = {
-  // }
-}
 
 object Names
 {
-  def v = "visualizations"
+  def vs = "visualizations"
+  def ss = "sessions"
 }
 
 case class Visualizations(session: Session)
 {
   import Names._
 
-  def req[A: EntityDecoder] = session.req[A] / v
+  def req[A: EntityDecoder] = session.req[A] / vs
 
-  def rootReq[A: EntityDecoder] = session.api.req[A] / v
+  def rootReq[A: EntityDecoder] = session.api.req[A] / vs
 
   def all = req[List[Visualization]].get
 
@@ -180,35 +183,52 @@ case class Visualizations(session: Session)
   def delete(id: String) =
     (rootReq[Visualization] / id).delete
 
+  def deleteAll =
+    for {
+      vs1 <- all
+      _ <- vs1.map(_.id).map(delete).sequence
+    } yield ()
+
   def update[A: Plot](viz: Visualization, a: A) = {
-    val data = VisualizationUpdateCodec(a.data)
-    (rootReq[Visualization] / viz.id)
+    val data = VizUpdateCodec(VizDataCodec(a.data))
+    (req[Visualization] / viz.id / "data")
       .data(data)
       .put
   }
 }
 
-case class Session(api: Api, sessionId: String)
+case class Session(api: Api, id: String, name: String)
 {
-  def req[A: EntityDecoder] = api.req[A] / "sessions" / sessionId
+  def req[A: EntityDecoder] = api.req[A] / "sessions" / id
 
-  def vizReq[A: EntityDecoder] = req[A] / Names.v
+  def vizReq[A: EntityDecoder] = req[A] / Names.vs
 
   def viz = Visualizations(this)
 }
 
 case class SessionCodec(id: String)
 
-class Lightning(base: Uri)
+case class Sessions(api: Api)
+{
+  import Names._
+
+  def req[A: EntityDecoder] = api.req[A] / ss
+
+  def create(name: String) =
+    req[SessionCodec]
+      .data(Map("name" -> name))
+      .post
+      .map(c => Session(api, c.id, name))
+
+  def delete(id: String) =
+    (req[SessionCodec] / id).delete
+}
+
+case class Lightning(base: Uri)
 {
   lazy val api = Api(base)
 
-  def createSession(name: String) = {
-    implicit val d1: EntityDecoder[SessionCodec] = jsonOf[SessionCodec]
-    (api.req[SessionCodec] / "sessions").data(Map("name" -> name)).post
-  }
-
-  def session(id: String) = Session(api, id)
+  def sessions = Sessions(api)
 }
 
 object Lightning
@@ -227,9 +247,6 @@ object Lightning
       .getOrElse(defaultUri)
     new Lightning(h)
   }
-
-  def createSession(name: String, host: Option[String]) =
-    apply(host).createSession(name)
 }
 
 // case class Lightning2(host: String)
