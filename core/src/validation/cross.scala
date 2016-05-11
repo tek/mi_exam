@@ -10,8 +10,9 @@ import cats.data.Xor._
 
 object ModelSelection
 {
-  type Result[A, P, O] =
-    Stream[Task, Estimation[P] Xor ModelSelection[A, P, O]]
+  type Result[A, P, O] = Stream[Task, Learn[A, P, O]]
+
+  type Trans[A, B] = Handle[Task, A] => Pull[Task, B, Handle[Task, B]]
 }
 
 import ModelSelection._
@@ -33,14 +34,32 @@ trait ModelSelector[A, P, O]
   def validatedCount: Int
 }
 
+sealed trait Learn[A, P, O]
+
+object Learn
+{
+  case class Go[A, P, O]()
+  extends Learn[A, P, O]
+
+  case class Fold[A, P, O](train: Nel[A], test: Nel[A])
+  extends Learn[A, P, O]
+
+  case class Step[A, P, O](estimation: Estimation[P])
+  extends Learn[A, P, O]
+
+  case class Result[A, P, O](model: ModelSelection[A, P, O])
+  extends Learn[A, P, O]
+
+  case class Done[A, P, O]()
+  extends Learn[A, P, O]
+}
+
 case class CrossValidator[A, P, M, O](data: Nel[A],
   config: ModelSelectionConf, estimator: Nel[A] => Estimator[A, P],
   modelCreator: Nel[A] => ModelCreator[P, M],
   validator: Nel[A] => Validator[A, M, O], stop: StopCriterion[P])
 extends ModelSelector[A, P, O]
 {
-  type Trans[A, B] = Handle[Task, A] => Pull[Task, B, Handle[Task, B]]
-
   def result: List[String Xor Result[A, P, O]] = intervals.map(interval).toList
 
   def interval(start: Int): String Xor Result[A, P, O] = {
@@ -68,7 +87,8 @@ extends ModelSelector[A, P, O]
   }
 
   private[this] def learn(trainData: Nel[A], testData: Nel[A])
-  : Stream[Task, Estimation[P] Xor ModelSelection[A, P, O]] = {
+  : Stream[Task, Learn[A, P, O]] = {
+    type PP = P
     type In = Estimation[P]
     import Pull._
     type Out = In Xor In
@@ -80,11 +100,14 @@ extends ModelSelector[A, P, O]
         case None => done
       }
     }
-    estimator(trainData).stream(stop).open.flatMap(trans(None)).run
-      .map(_.map(e => (e -> modelCreator(trainData).run(e))))
-      .map(_.map {
-        case (e, m) => ModelSelection(e, validator(testData).run(m))
-      })
+    Stream.emit(Learn.Fold[A, PP, O](trainData, testData)) ++
+      estimator(trainData).stream(stop).open.flatMap(trans(None)).run
+        .map {
+          case Left(e) => Learn.Step(e)
+          case Right(e) =>
+            val model = modelCreator(trainData).run(e)
+            Learn.Result(ModelSelection(e, validator(testData).run(model)))
+        }
   }
 }
 
@@ -159,18 +182,24 @@ extends Logging
 
   lazy val errors = result.swap.collectRight
 
-  lazy val results = result.collectRight
+  lazy val results: List[Stream[Task, Learn[A, P, O]]] = result.collectRight
 
   def totalCount = cross.validatedCount
 
-  def unified = results.foldLeft(Stream.empty: Result[A, P, O])(_ ++ _)
+  def unified: Result[A, P, O] =
+    results.foldLeft(Stream.empty: Result[A, P, O])(_ ++ _) ++
+      Stream.emit(Learn.Done())
 
-  def unsafeResult =
-    XorT.apply[Stream[Task, ?], E, M](unified)
-      .collectRight.runLog.run.unsafeRun
+  def model: Stream[Task, ModelSelection[A, P, O]] =
+    unified
+      .collect { case Learn.Result(r) => r }
+
+  def unsafeModel =
+    model
+      .runLog.run.unsafeRun
 
   lazy val unsafeValidation = {
-    val res = unsafeResult
+    val res = unsafeModel
     val stats = res.map(_.validation.stats(cost))
     ModelSelectionValidation(res, stats, config, totalCount)
   }

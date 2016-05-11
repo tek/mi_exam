@@ -1,7 +1,9 @@
 package tryp
 package mi
 
-trait IrisSpecBase
+import viz._
+
+abstract class IrisSpecBase[P: Plotting, O]
 extends Spec
 {
   def is = s2"""
@@ -14,7 +16,7 @@ extends Spec
 
   lazy val data = Iris.loadNel
 
-  def trials = None
+  def trials: Option[Int] = None
 
   lazy val sconf = ModelSelectionConf.default(
     epsilon = 1e-8d,
@@ -24,7 +26,7 @@ extends Spec
 
   def margin = foldMargin * (trials | sconf.folds)
 
-  val msv: ModelSelectionValidator[_, _, _]
+  val msv: ModelSelectionValidator[Iris, P, O]
 
   def train = {
     msv.printer.short()
@@ -32,8 +34,8 @@ extends Spec
   }
 }
 
-trait PlottedIrisSpecBase
-extends IrisSpecBase
+abstract class PlottedIrisSpecBase[P: Plotting, O]
+extends IrisSpecBase[P, O]
 {
   override def is = s2"""
   $title
@@ -41,13 +43,22 @@ extends IrisSpecBase
   plot intermediates while learning a model with cross-validation $plotTrain
   """
 
-  def plotTrain = {
-    val pms = PlottedModelSelection(msv)
-    pms.plotter.run.run.unsafeRun
-    val error: Option[Double] = pms.unsafeValidation.map { msv =>
-      // msv.printer.short()
-      msv.foldError
-    }
-    error must beSome(be_<=(margin))
-  }
+  override def performableTimeout = 2.minutes
+
+  override def trials = 1.some
+
+  def stepInterval = 300.millis
+
+  lazy val pms = 
+    PlottedModelSelection[Iris, JFreeData, P, O](msv, stepInterval)
+
+  lazy val error =
+    pms.main
+      .map { valid =>
+        valid.printer.short()
+        valid.foldError
+      }
+
+  lazy val plotTrain =
+    error computes be_<=(margin)
 }

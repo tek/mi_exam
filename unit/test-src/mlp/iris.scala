@@ -1,9 +1,10 @@
 package tryp
 package mi
 package mlp
+package unit
 
 class IrisSpec
-extends IrisSpecBase
+extends IrisSpecBase[Weights, MLP]
 {
   def title = "Multilayer Perceptron"
 

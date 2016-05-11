@@ -1,9 +1,10 @@
 package tryp
 package mi
 package rbf
+package unit
 
-class IrisSpec
-extends IrisSpecBase
+trait IrisSpec
+extends IrisSpecBase[RBFs[GaussBF], Double]
 {
   def title = "Radial Basis Functions"
 
@@ -21,8 +22,5 @@ extends IrisSpecBase
 }
 
 class PlottedIrisSpec
-extends IrisSpec
-with PlottedIrisSpecBase
-{
-
-}
+extends PlottedIrisSpecBase[RBFs[GaussBF], Double]
+with IrisSpec

@@ -1,41 +1,141 @@
 package tryp
 package mi
+package viz
+
+import java.util.concurrent.Executors
 
 import fs2._
 import fs2.util._
-import Step._
-import Stream.Handle
 
-import cats.data.Xor._
+import breeze.plot._
 
-case class PlottedModelSelection[A, P, O]
-(msv: ModelSelectionValidator[A, P, O])
+import ModelSelection._
+import PlotBackend.ops._
+import Plotting.ops._
+
+case class Plotter[A: Sample, B: PlotBackend, P: Plotting]
+(plotData: B, data: Option[(Nel[A], Nel[A])])
 {
+  def setup: Task[Plotter[A, B, P]] = {
+    Task.delay {
+      plotData.setup()
+      p("setup")
+      this
+    }
+  }
+
+  def fold(train: Nel[A], test: Nel[A]): Plotter[A, B, P] = {
+    plotData.fold(train.unwrap.map(_.feature))
+    Plotter(plotData, Some((train, test)))
+  }
+
+  def step(est: Estimation[P]): Task[Plotter[A, B, P]] = {
+    Task.delay {
+      hl
+      data foreach { a =>
+        plotData.step(est.params)
+      }
+      this
+    }
+  }
+}
+
+object Plotter
+{
+  def empty[A: Sample, B: PlotBackend, P: Plotting] =
+    Plotter[A, B, P](PlotBackend[B].init, None)
+}
+
+case class PlottedModelSelection[A: Sample, B: PlotBackend, P: Plotting, O]
+(msv: ModelSelectionValidator[A, P, O],
+  stepInterval: FiniteDuration = 100.millis)
+{
+  type MS = ModelSelectionValidation[A, P, O]
+
+  type L = Learn[A, P, O]
+
   implicit def strat = Strategy.sequential
 
-  lazy val q = async.unboundedQueue[Task, Estimation[P]].unsafeRun
+  implicit lazy val scheduler =
+    Executors.newScheduledThreadPool(2)
 
-  lazy val results = {
+  lazy val q = async.unboundedQueue[Task, Learn[A, P, O]].unsafeRun
+
+  lazy val finished = async.signalOf[Task, Boolean](false).unsafeRun
+
+  lazy val results: Stream[Task, ModelSelection[A, P, O]] = {
+    val em = Stream.empty[Task, ModelSelection[A, P, O]]
+    def send(t: Learn[A, P, O]) =
+        Stream.eval(q.enqueue1(t)).flatMap(_ => em)
     msv.unified.flatMap {
-      case r @ Right(m) =>
-        // TODO send message into queue resulting in a new plot
-        Stream.emit(r)
-      case l @ Left(e) => Stream.eval(q.enqueue1(e).map(_ => l))
+      case l @ Learn.Fold(train, test) => send(l)
+      case l @ Learn.Result(m) =>
+        send(l) ++ Stream.emit(m)
+      case l => send(l)
     }
   }
 
   lazy val validation = {
-    results.stripW.vectorChunkN(Int.MaxValue).take(1).map { res =>
+    results.runLog.run.map { res =>
       val stats = res.map(_.validation.stats(msv.cost))
       ModelSelectionValidation(res, stats, msv.config, msv.totalCount)
     }
   }
 
-  lazy val unsafeValidation = validation.runLog.run.unsafeRun.headOption
+  def unsafeValidation = validation.unsafeRun
 
-  // def setupPlot = {
+  def plotLoop(plotter: Plotter[A, B, P]): Trans[Learn[A, P, O], Unit] = {
+    type P1 = P
+    import Pull._
+    import Learn._
+    receive1 {
+      case a #: h =>
+        val rec = plotLoop((_: Plotter[A, B, P1]))(h)
+        a match {
+          case Go() =>
+            eval(plotter.setup) >> outputs(time.sleep(3.seconds)) >>
+              rec(plotter)
+          case Step(e) =>
+            eval(plotter.step(e)) >> outputs(time.sleep(stepInterval)) >>
+              rec(plotter)
+          case Fold(train, test) =>
+            rec(plotter.fold(train, test))
+          case Done() =>
+            done
+          case Result(_) =>
+            eval(Task(())) >> rec(plotter)
+        }
+    }
+  }
 
-  // }
+  def plotStream: fs2.Stream[Task, Unit] = {
+    val s = Stream.eval(Task(Learn.Go[A, P, O]())) ++ q.dequeue
+    finished.interrupt(s.open.flatMap(plotLoop(Plotter.empty[A, B, P])).run)
+  }
 
-  def plotter = Stream.emit[Task, Int](1)
+  def waitForCompletion(res: Either[Unit, MS])
+  : Trans[Option[Either[Unit, MS]], MS] = {
+    import Pull._
+    receive1 {
+      case a #: h =>
+        a match {
+          case Some(SLeft(_)) => waitForCompletion(res)(h)
+          case Some(r @ SRight(_)) => waitForCompletion(r)(h)
+          case None => res.map(output1(_)).fold(_ => done, identity) >> done
+        }
+    }
+  }
+
+  def plotWithTerminator: Stream[Task, Option[Either[Unit, MS]]] =
+    plotStream.map(_ => SLeft[Unit, MS](())).noneTerminate
+
+  def mainT: Stream[Task, Option[Either[Unit, MS]]] =
+    Stream.eval(validation).map(SRight[Unit, MS](_).some)
+
+  def main =
+    mainT
+      .merge(plotWithTerminator)
+      .open
+      .flatMap(waitForCompletion(SLeft[Unit, MS](())))
+      .run
 }

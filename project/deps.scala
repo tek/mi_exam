@@ -30,7 +30,8 @@ extends tryp.Deps
     "io.circe" %% "circe-core" % "+",
     "io.circe" %% "circe-generic" % "+",
     "io.circe" %% "circe-parser" % "+",
-    dd("tryp" %% "pulsar-unit-core" % "+" % "test", "tek/pulsar", "unit-core")
+    dd("tryp" %% "pulsar-unit-core" % "+" % "test", "tek/pulsar", "unit-core"),
+    "com.github.wookietreiber" %% "scala-chart" % "latest.integration"
   )
 
   override val specsV = "3.7"

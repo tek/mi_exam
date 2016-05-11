@@ -57,13 +57,13 @@ extends Initialization[P]
 }
 
 @Lenses
-case class GaussBF(center: Col, sigma: Double)
+case class GaussBF(center: Col, variance: Double)
 extends UFunc
 {
-  lazy val sigmaSquared = sigma * sigma
+  lazy val varianceSquared = variance * variance
 
   implicit val colImpl = new Impl[Col, Double] {
-    def apply(a: Col) = GaussBF.main(a, center, sigmaSquared)
+    def apply(a: Col) = GaussBF.main(a, center, varianceSquared)
   }
 }
 
@@ -97,7 +97,7 @@ trait GaussBFInstances
           case _ => Double.MaxValue
         }
         val newSigma = dist.unwrap.min * lambda
-        (bf &|-> GaussBF.sigma).set(newSigma)
+        (bf &|-> GaussBF.variance).set(newSigma)
       }
     }
 
