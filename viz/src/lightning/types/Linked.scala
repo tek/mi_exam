@@ -1,6 +1,7 @@
 package tryp
 package mi
 package viz
+package lgn
 
 trait Linked extends Base {
 

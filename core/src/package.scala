@@ -31,5 +31,6 @@ with PullFunctions
 with StreamInstances
 with ToXorStreamOps
 with TaskInstances
+with BreezeInstances
 {
 }

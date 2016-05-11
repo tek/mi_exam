@@ -1,6 +1,7 @@
 package tryp
 package mi
 package viz
+package lgn
 
 import scalaz.stream.Process
 

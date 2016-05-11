@@ -5,6 +5,12 @@ import sbt._, Keys._
 object Build
 extends MultiBuild("mi_exam", deps = MiDeps)
 {
+  lazy val session =
+    List(
+      fork := true,
+      javaOptions += s"-Dtryp.mi.sessions=${target.value / "sessions"}"
+    )
+
   lazy val core = tdp("core")
     .logback("tag" -> "mi")
 
@@ -12,11 +18,12 @@ extends MultiBuild("mi_exam", deps = MiDeps)
 
   lazy val rbf = "rbf" << core
 
-  lazy val viz = "viz" << core
+  lazy val viz = ("viz" << core)
+    .settings(session)
 
   lazy val unit = ("unit" << mlp << rbf << viz)
+    .settings(session)
     .settingsV(
-      fork := true,
       javaOptions += {
         val datadir = (baseDirectory in ThisBuild).value / "data"
         s"-Ddatadir=$datadir"
@@ -25,5 +32,7 @@ extends MultiBuild("mi_exam", deps = MiDeps)
 
   override def consoleImports = """
   import cats._, data._, syntax.all._, std.all._
+  import breeze._, linalg._
+  import tryp._
   """
 }

@@ -99,7 +99,7 @@ extends LightningSpecBase
   lazy val res = for {
     v <- viz.findOrCreate("line", name)
     t1 <- viz.find(_.id == v.id)
-    deleted <- viz.delete(p(v.id))
+    deleted <- viz.delete(v.id)
     t2 <- viz.find(_.id == v.id)
   } yield (t1.flatMap(_.description), deleted.description, t2)
 
