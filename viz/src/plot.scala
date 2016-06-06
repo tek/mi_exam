@@ -13,8 +13,14 @@ package viz
 @tc abstract class Plotting[P]
 extends AnyRef
 {
-  def estimationCenters(data: P): Array[Array[Double]]
   def estimationPlot(data: P): Scatter
+}
+
+@tc abstract class SamplePlotting[A: Sample]
+extends AnyRef
+{
+  def plotCount: Int
+  def plots(data: List[Col], size: Array[Double]): List[Array[Array[Double]]]
 }
 
 case class Scatter(points: List[Col], size: Int => Double)

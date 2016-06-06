@@ -30,6 +30,9 @@ class Figure(config: FigureConf, plots: List[Chart])
   val transparent = new Color(255, 255, 255, 0)
 
   def show(): VisibleFigure = {
+    plots.foreach { a =>
+      a.backgroundPaint = transparent
+    }
     val panel = new GridPanel(rows, cols) {
       contents ++= plots.map(_.toComponent())
     }

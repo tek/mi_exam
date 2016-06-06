@@ -10,6 +10,8 @@ import breeze.linalg.Transpose
 
 import spire.implicits._
 
+import viz.SamplePlotting
+
 case class Iris(feature: Col, name: String)
 
 object Iris
@@ -64,5 +66,19 @@ trait IrisInstances
       def value(a: Iris) = Iris.values.get(a.name).getOrElse(-1.0)
 
       override def range = 10d
+    }
+
+  implicit lazy val instance_SamplePlotting_Iris: SamplePlotting[Iris] =
+    new SamplePlotting[Iris] {
+      def plotCount = 4
+
+      def projections = List((0, 1))
+
+      def plots(data: List[Col], size: Array[Double]) = {
+        projections map {
+          case (a, b) =>
+            Array(data.map(_(a)).toArray, data.map(_(b)).toArray, size)
+        }
+      }
     }
 }

@@ -3,7 +3,7 @@ package mi
 
 import viz._
 
-abstract class IrisSpecBase[P: Plotting, O]
+abstract class IrisSpecBase[P, O]
 extends Spec
 {
   def is = s2"""
@@ -50,7 +50,7 @@ extends IrisSpecBase[P, O]
   def stepInterval = 300.millis
 
   lazy val pms = 
-    PlottedModelSelection[Iris, JFreeData, P, O](msv, stepInterval)
+    PlottedModelSelection[Iris, JFree[Iris], P, O](msv, stepInterval)
 
   lazy val error =
     pms.main
