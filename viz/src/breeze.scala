@@ -2,6 +2,9 @@ package tryp
 package mi
 package viz
 
+import fs2.util.Task
+import fs2.Strategy
+
 import org.jfree.data.xy.DefaultXYZDataset
 
 import breeze.plot.{Figure => BreezeFigure, _}
@@ -23,18 +26,24 @@ trait BreezeInstances
 {
   implicit lazy val instance_PlotBackend_BreezeData =
     new PlotBackend[BreezeData] {
+      implicit def strat = Strategy.sequential
+
       def init = BreezeData(BreezeFigure())
 
-      def setup(a: BreezeData)(): Unit = ()
+      def setup(a: BreezeData) = Task(())
 
-      def fold(a: BreezeData)(b: List[Col]): Unit = {
-        a.plot += scatterPlot(Scatter(b, _ => dataSize))
+      def fold(a: BreezeData)(b: List[Col]) = {
+        Task {
+          a.plot += scatterPlot(Scatter(b, _ => dataSize))
+        }
       }
 
       def step[P: Plotting](a: BreezeData)(params: P) = {
-        a.clear()
-        a.plot += scatterPlot(params.estimationPlot)
-        a.refresh()
+        Task {
+          a.clear()
+          a.plot += scatterPlot(params.estimationPlot)
+          a.refresh()
+        }
       }
 
       def dataSize = 0.05d

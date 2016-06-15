@@ -19,8 +19,10 @@ extends Spec
   def trials: Option[Int] = None
 
   lazy val sconf = ModelSelectionConf.default(
-    epsilon = 1e-8d,
-    trials = trials)
+    epsilon = 1e-2d,
+    trials = trials,
+    folds = 10
+    )
 
   val foldMargin = 1e-1d
 
@@ -45,11 +47,13 @@ extends IrisSpecBase[P, O]
 
   override def performableTimeout = 2.minutes
 
-  override def trials = 1.some
+  // override def trials = 1.some
 
-  def stepInterval = 300.millis
+  def stepInterval = 200.millis
 
-  lazy val pms = 
+  implicit def fconf = FigureConf.default("mi", width = 1000, height = 1000)
+
+  lazy val pms =
     PlottedModelSelection[Iris, JFree[Iris], P, O](msv, stepInterval)
 
   lazy val error =

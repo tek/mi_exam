@@ -10,7 +10,7 @@
       <pattern>%d{HH:mm:ss.SSS} %-5level %logger{35} | %msg%n</pattern>
     </encoder>
   </appender>
-  <logger name="tryp" level="debug" />
+  <logger name="tryp" level="info" />
   <logger name="org" level="info" />
   <root>
     <appender-ref ref="FILE" />

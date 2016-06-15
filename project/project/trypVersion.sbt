@@ -1,1 +1,1 @@
-P.trypVersion in Global := "94-SNAPSHOT"
+P.trypVersion in Global := "96.0.0"

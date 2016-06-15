@@ -2,14 +2,14 @@ package tryp
 package mi
 package viz
 
-import java.awt.{Stroke, Paint}
+import fs2.util.Task
+import fs2.Strategy
 
 import org.jfree.data.xy.{DefaultXYZDataset, XYDataset}
 import org.jfree.chart.renderer.xy._
+import org.jfree.chart.axis._
 
 import scalax.chart._, api._
-
-import breeze.plot.Plot
 
 import Plotting.ops._
 
@@ -19,56 +19,72 @@ case class JFreeData(chart: XYChart, samples: DefaultXYZDataset,
 case class JFree[A](figure: Figure, data: List[JFreeData])
 
 trait JFreeInstances
+extends Logging
 {
-  implicit def instance_PlotBackend_JFree[A: SamplePlotting: Sample] =
+  implicit def strat = Strategy.sequential
+
+  implicit def instance_PlotBackend_JFree[A: SamplePlotting: Sample]
+  (implicit fconf: FigureConf) =
     new PlotBackend[JFree[A]] {
       type Coords = List[(Double, Double)]
 
       def samplePlotting = SamplePlotting[A]
 
-      def data = {
+      def data(xrange: (Double, Double), yrange: (Double, Double)) = {
         val samples = new DefaultXYZDataset
         val estimation = new DefaultXYZDataset
         val r1 = new XYBubbleRenderer
         val r2 = new XYBubbleRenderer
-        val chart = XYLineChart.shapes(samples, "mi")
-        chart.plot.setDataset(1, estimation)
-        chart.plot.setRenderer(r1)
-        chart.plot.setRenderer(1, r2)
+        val ax = new NumberAxis
+        val ay = new NumberAxis
+        ax.setAutoRange(false)
+        ax.setRange(xrange._1, xrange._2)
+        ay.setAutoRange(false)
+        ay.setRange(yrange._1, yrange._2)
+        val plot = new XYPlot(samples, ax, ay, r1)
+        plot.setDataset(0, samples)
+        plot.setDataset(1, estimation)
+        plot.setRenderer(r1)
+        plot.setRenderer(1, r2)
+        val chart = XYChart(plot, "mi", false, ChartTheme.Default)
         JFreeData(chart, samples, estimation)
       }
 
       def init = {
-        val d = samplePlotting.plotCount.gen(data)
-        val figure = new Figure(FigureConf.default("mi"), d.map(_.chart))
+        val d = samplePlotting.projectionRanges
+          .map { case (x, y) => data(x, y) }
+        val rows = Math.ceil(Math.sqrt(samplePlotting.plotCount)).toInt
+        val figure = new Figure(fconf.copy(rows = rows), d.map(_.chart))
         JFree(figure, d)
       }
 
-      def setup(a: JFree[A])(): Unit = {
-        a.figure.show()
+      def setup(a: JFree[A]): Task[Unit] = {
+        Task(a.figure.show())
       }
 
-      def project2d(data: List[Col]) =
-        data.toArray.map(a => a(1) -> a(2)).unzip
-
-      def fold(a: JFree[A])(data: List[Col]): Unit = {
+      def fold(a: JFree[A])(data: List[Col]) = {
+        log.debug(s"Plotting fold: $data")
         val size = data.length.gen(dataSize).toArray
         update(a)(_.samples, "samples", data, size)
       }
 
       def step[P: Plotting](a: JFree[A])(params: P) = {
+        log.debug(s"Plotting step: $params")
         val plot = params.estimationPlot
         val z = (0 until plot.points.length).map(plot.size).toArray
         update(a)(_.estimation, "estimation", plot.points, z)
       }
 
       private[this] def update(a: JFree[A])
-      (chart: JFreeData => DefaultXYZDataset, name: String, data: List[Col],
+      (dataset: JFreeData => DefaultXYZDataset, name: String, data: List[Col],
         size: Array[Double]) = {
           val plots = samplePlotting.plots(data, size)
-          a.data.map(chart).zip(plots).map {
-            case (ch, plot) => Task(ch.addSeries(name, plot))
+          val tasks = a.data.zip(plots).map {
+            case (jdata, plot) => Task {
+              dataset(jdata).addSeries(name, plot)
+            }
           }
+          tasks.sequence_
         }
 
       def dataSize = 0.05d

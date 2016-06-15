@@ -12,7 +12,7 @@ extends IrisSpecBase[RBFs[GaussBF], Double]
 
   val eta = 1d
 
-  val lambda = 2d
+  val lambda = 1d
 
   // override def trials = Some(1)
 

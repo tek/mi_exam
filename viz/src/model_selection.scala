@@ -15,34 +15,28 @@ import Plotting.ops._
 
 case class Plotter[A: Sample, B: PlotBackend, P: Plotting]
 (plotData: B, data: Option[(Nel[A], Nel[A])])
+(implicit strat: Strategy)
 {
   def setup: Task[Plotter[A, B, P]] = {
-    Task.delay {
-      plotData.setup()
-      p("setup")
-      this
-    }
+    plotData.setup.map(_ => this)
   }
 
-  def fold(train: Nel[A], test: Nel[A]): Plotter[A, B, P] = {
+  def fold(train: Nel[A], test: Nel[A]): Task[Plotter[A, B, P]] = {
     plotData.fold(train.unwrap.map(_.feature))
-    Plotter(plotData, Some((train, test)))
+      .map(a => Plotter(plotData, Some((train, test))))
   }
 
   def step(est: Estimation[P]): Task[Plotter[A, B, P]] = {
-    Task.delay {
-      hl
-      data foreach { a =>
-        plotData.step(est.params)
-      }
-      this
-    }
+    data
+      .map(a => plotData.step(est.params))
+      .getOrElse(Task.now(()))
+      .map(a => this)
   }
 }
 
 object Plotter
 {
-  def empty[A: Sample, B: PlotBackend, P: Plotting] =
+  def empty[A: Sample, B: PlotBackend, P: Plotting](implicit strat: Strategy) =
     Plotter[A, B, P](PlotBackend[B].init, None)
 }
 
@@ -56,8 +50,7 @@ case class PlottedModelSelection[A: Sample, B: PlotBackend, P: Plotting, O]
 
   implicit def strat = Strategy.sequential
 
-  implicit lazy val scheduler =
-    Executors.newScheduledThreadPool(2)
+  implicit lazy val scheduler = Scheduler.fromFixedDaemonPool(1)
 
   lazy val q = async.unboundedQueue[Task, Learn[A, P, O]].unsafeRun
 
@@ -76,7 +69,7 @@ case class PlottedModelSelection[A: Sample, B: PlotBackend, P: Plotting, O]
   }
 
   lazy val validation = {
-    results.runLog.run.map { res =>
+    results.runLog.map { res =>
       val stats = res.map(_.validation.stats(msv.cost))
       ModelSelectionValidation(res, stats, msv.config, msv.totalCount)
     }
@@ -93,13 +86,14 @@ case class PlottedModelSelection[A: Sample, B: PlotBackend, P: Plotting, O]
         val rec = plotLoop((_: Plotter[A, B, P1]))(h)
         a match {
           case Go() =>
-            eval(plotter.setup) >> outputs(time.sleep(3.seconds)) >>
+            eval(plotter.setup) >> outputs(time.sleep[Task](1.seconds)) >>
               rec(plotter)
           case Step(e) =>
-            eval(plotter.step(e)) >> outputs(time.sleep(stepInterval)) >>
-              rec(plotter)
+            eval(plotter.step(e)).flatMap { plt =>
+              outputs(time.sleep[Task](stepInterval)) >> rec(plt)
+            }
           case Fold(train, test) =>
-            rec(plotter.fold(train, test))
+            eval(plotter.fold(train, test)) flatMap rec
           case Done() =>
             done
           case Result(_) =>
@@ -110,7 +104,7 @@ case class PlottedModelSelection[A: Sample, B: PlotBackend, P: Plotting, O]
 
   def plotStream: fs2.Stream[Task, Unit] = {
     val s = Stream.eval(Task(Learn.Go[A, P, O]())) ++ q.dequeue
-    finished.interrupt(s.open.flatMap(plotLoop(Plotter.empty[A, B, P])).run)
+    finished.interrupt(s.pull(plotLoop(Plotter.empty[A, B, P])))
   }
 
   def waitForCompletion(res: Either[Unit, MS])
@@ -135,7 +129,5 @@ case class PlottedModelSelection[A: Sample, B: PlotBackend, P: Plotting, O]
   def main =
     mainT
       .merge(plotWithTerminator)
-      .open
-      .flatMap(waitForCompletion(SLeft[Unit, MS](())))
-      .run
+      .pull(waitForCompletion(SLeft[Unit, MS](())))
 }

@@ -2,7 +2,7 @@ package tryp
 package mi
 
 import atto._, Atto._
-import atto.syntax.stream.all._
+import atto.compat.cats._
 
 import scalaz.stream._
 
@@ -70,9 +70,15 @@ trait IrisInstances
 
   implicit lazy val instance_SamplePlotting_Iris: SamplePlotting[Iris] =
     new SamplePlotting[Iris] {
+      def ranges = List((0d, 10d), (0d, 5d), (0d, 10d), (0d, 5d))
+
       def plotCount = 4
 
-      def projections = List((0, 1))
+      def projections = List((0, 1), (1, 2), (2, 3), (3, 0))
+
+      def projectionRanges = projections.map {
+        case (x, y) => ranges(x) -> ranges(y)
+      }
 
       def plots(data: List[Col], size: Array[Double]) = {
         projections map {

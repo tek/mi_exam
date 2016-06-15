@@ -101,7 +101,7 @@ extends ModelSelector[A, P, O]
       }
     }
     Stream.emit(Learn.Fold[A, PP, O](trainData, testData)) ++
-      estimator(trainData).stream(stop).open.flatMap(trans(None)).run
+      estimator(trainData).stream(stop).pull(trans(None))
         .map {
           case Left(e) => Learn.Step(e)
           case Right(e) =>
@@ -196,7 +196,7 @@ extends Logging
 
   def unsafeModel =
     model
-      .runLog.run.unsafeRun
+      .runLog.unsafeRun
 
   lazy val unsafeValidation = {
     val res = unsafeModel
