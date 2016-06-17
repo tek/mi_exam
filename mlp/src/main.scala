@@ -213,7 +213,7 @@ case class MLPEstimator[S: Sample]
 (data: Nel[S], config: MLPLearnConf)
 extends Estimator[S, Weights]
 {
-  lazy val initialParams = config.initialParams(featureCount)
+  lazy val initialParams = config.initialParams(Sample[S].featureCount)
 
   lazy val step: MLPStep[S] = {
     if (config.mode == LearnConf.Batch) BatchStep(data, config)

@@ -102,7 +102,11 @@ with ScalaCheck
   lazy val dataGen: Gen[Nel[ClassConf]] =
     rbf(5, 5, Range(folds * 5, folds * 10))
 
-  def mkSample(d: Nel[DataClass]) = new DataSample { def data = d.unwrap }
+  def mkSample(d: Nel[DataClass]) =
+    new DataSample {
+      def data = d.unwrap
+      def featureCount = d.head.conf.features
+    }
 
   val trials = Some(1)
 

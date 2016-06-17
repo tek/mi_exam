@@ -32,6 +32,8 @@ object Dat
       def feature(a: Dat) = a.feature
 
       def value(a: Dat) = Dat.values.get(a.name).getOrElse(-1.0)
+
+      def featureCount = 2
     }
 }
 

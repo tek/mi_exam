@@ -66,6 +66,8 @@ trait IrisInstances
       def value(a: Iris) = Iris.values.get(a.name).getOrElse(-1.0)
 
       override def range = 10d
+
+      def featureCount = 4
     }
 
   implicit lazy val instance_SamplePlotting_Iris: SamplePlotting[Iris] =

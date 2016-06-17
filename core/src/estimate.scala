@@ -22,7 +22,6 @@ abstract class Estimator[S: Sample, M]
 
   val step: EstimationStep[M]
 
-  val featureCount = data.head.feature.length
 
   def result(iteration: Long, par: M) = Estimation(iteration, par)
 

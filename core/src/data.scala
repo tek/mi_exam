@@ -18,6 +18,7 @@ extends ModelClass
   def feature(a: S): Col
   def value(a: S): Double
   def range: Double = 1d
+  def featureCount: Int
 
   def predictedClass(pred: Double): ModelClass = {
     classes

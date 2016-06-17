@@ -157,7 +157,7 @@ case class RBFEstimator[S: Sample, P: BasisFunction: Initializer: UpdateParams]
 (data: Nel[S], config: RBFLearnConf[P])
 extends Estimator[S, RBFs[P]]
 {
-  lazy val initialParams = config.initialParams(featureCount)
+  lazy val initialParams = config.initialParams(Sample[S].featureCount)
 
   lazy val step = KMeansStep(data.map(_.feature), config)
 }

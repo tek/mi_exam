@@ -20,6 +20,8 @@ extends Spec
         def feature(a: Dat) = a.feature
 
         def value(a: Dat) = a.value
+
+        def featureCount = 2
       }
   }
 
