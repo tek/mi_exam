@@ -18,7 +18,7 @@ object ModelSelection
 import ModelSelection._
 
 case class ModelSelection[A, P, O]
-(estimation: Estimation[P], validation: Validation[A, O])
+(estimation: Est[P], validation: Validation[A, O])
 
 case class ModelTrainInfo[A, P, O]
 (model: ModelSelection[A, P, O], stats: EstimationStats)
@@ -44,7 +44,7 @@ object Learn
   case class Fold[A, P, O](train: Nel[A], test: Nel[A])
   extends Learn[A, P, O]
 
-  case class Step[A, P, O](estimation: Estimation[P])
+  case class Step[A, P, O](estimation: Est[P])
   extends Learn[A, P, O]
 
   case class Result[A, P, O](model: ModelSelection[A, P, O])
@@ -55,9 +55,9 @@ object Learn
 }
 
 case class CrossValidator[A, P, M, O](data: Nel[A],
-  config: ModelSelectionConf, estimator: Nel[A] => Estimator[A, P],
+  config: ModelSelectionConf, estimator: Nel[A] => SimpleEstimator[P],
   modelCreator: Nel[A] => ModelCreator[P, M],
-  validator: Nel[A] => Validator[A, M, O], stop: StopCriterion[P])
+  validator: Nel[A] => Validator[A, M, O])
 extends ModelSelector[A, P, O]
 {
   def result: List[String Xor Result[A, P, O]] = intervals.map(interval).toList
@@ -86,10 +86,13 @@ extends ModelSelector[A, P, O]
       l.slice(start, end).nelXor(sliceError)
   }
 
+  /* Stream the estimation intermediates on the writer side of the output of
+   * `trans`, then transform into the Learn algebra.
+   */
   private[this] def learn(trainData: Nel[A], testData: Nel[A])
   : Stream[Task, Learn[A, P, O]] = {
     type PP = P
-    type In = Estimation[P]
+    type In = Est[P]
     import Pull._
     type Out = In Xor In
     def trans(z: Option[In]): Trans[In, Out] = receive1Option {
@@ -101,7 +104,7 @@ extends ModelSelector[A, P, O]
       }
     }
     Stream.emit(Learn.Fold[A, PP, O](trainData, testData)) ++
-      estimator(trainData).stream(stop).pull(trans(None))
+      estimator(trainData).stream.pull(trans(None))
         .map {
           case Left(e) => Learn.Step(e)
           case Right(e) =>
@@ -138,7 +141,7 @@ extends Logging
   def verbose() = all(true)
 
   def fold(info: ModelTrainInfo[_, _, _], verbose: Boolean) = {
-    val ModelSelection(Estimation(iter, _), Validation(data)) = info.model
+    val ModelSelection(Est(iter, _), Validation(data)) = info.model
     val stats = info.stats
     log.info("")
     if (iter == config.steps) log.info("training hasn't converged")
@@ -167,7 +170,7 @@ extends Logging
 abstract class ModelSelectionValidator[A, P, O]
 extends Logging
 {
-  private[this] type E = Estimation[P]
+  private[this] type E = Est[P]
   private[this] type M = ModelSelection[A, P, O]
 
   override def loggerName = List("msv")

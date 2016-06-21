@@ -31,7 +31,9 @@ extends Spec
 
   def bias = false
 
-  lazy val train = MLPEstimator(Nel(sample), conf)
+  lazy val stop = StepCountStopCriterion[Weights](1)
+
+  lazy val train = MLPEstimator(Nel(sample), conf, stop)
 
   val costFun = QuadraticError
 

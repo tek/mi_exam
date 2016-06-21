@@ -26,7 +26,7 @@ case class Plotter[A: Sample, B: PlotBackend, P: Plotting]
       .map(a => Plotter(plotData, Some((train, test))))
   }
 
-  def step(est: Estimation[P]): Task[Plotter[A, B, P]] = {
+  def step(est: Est[P]): Task[Plotter[A, B, P]] = {
     data
       .map(a => plotData.step(est.params))
       .getOrElse(Task.now(()))

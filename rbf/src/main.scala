@@ -146,7 +146,7 @@ case class KMeans[P: BasisFunction: UpdateParams]
 
 case class KMeansStep[S: Sample, P: BasisFunction: UpdateParams]
 (data: Nel[Col], config: RBFLearnConf[P])
-extends EstimationStep[RBFs[P]]
+extends Estimator[RBFs[P]]
 {
   def apply(params: RBFs[P]): RBFs[P] = {
     KMeans(data, config, params).updateBf
@@ -154,8 +154,8 @@ extends EstimationStep[RBFs[P]]
 }
 
 case class RBFEstimator[S: Sample, P: BasisFunction: Initializer: UpdateParams]
-(data: Nel[S], config: RBFLearnConf[P])
-extends Estimator[S, RBFs[P]]
+(data: Nel[S], config: RBFLearnConf[P], stop: StopCriterion[RBFs[P]])
+extends IterativeEstimator[RBFs[P]]
 {
   lazy val initialParams = config.initialParams(Sample[S].featureCount)
 
@@ -181,7 +181,7 @@ extends ModelCreator[RBFs[P], RBFNet[P]]
     pinv(leftCoeff) * rightCoeff
   }
 
-  def run(est: Estimation[RBFs[P]]): RBFNet[P] = {
+  def run(est: Est[RBFs[P]]): RBFNet[P] = {
     val rbfs = est.params
     RBFNet(rbfs, weights(rbfs))
   }
@@ -214,8 +214,8 @@ object RBF
   (data: Nel[S], conf: RBFLearnConf[P], sconf: ModelSelectionConf) = {
     val stop = ConvergenceStopCriterion[RBFs[P]](sconf.steps, sconf.epsilon)
     lazy val validator = CrossValidator[S, RBFs[P], RBFNet[P], Double](data,
-      sconf, RBFEstimator[S, P](_, conf), RBFModelCreator[S, P](_, conf),
-      RBFValidator[S, P](_, conf), stop)
+      sconf, RBFEstimator[S, P](_, conf, stop), RBFModelCreator[S, P](_, conf),
+      RBFValidator[S, P](_, conf))
     RBFModelSelectionValidator(validator, conf.cost)
   }
 }

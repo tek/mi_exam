@@ -50,10 +50,10 @@ object MLP
 
   def msv[S: Sample]
   (data: Nel[S], conf: MLPLearnConf, sconf: ModelSelectionConf) = {
-    val stop = ConvergenceStopCriterion(sconf.steps, sconf.epsilon)
+    val stop = ConvergenceStopCriterion[Weights](sconf.steps, sconf.epsilon)
     lazy val validator = CrossValidator[S, Weights, Weights, MLP](data, sconf,
-      MLPEstimator[S](_, conf), _ => IdModelCreator(),
-      MLPValidator[S](_, conf), stop)
+      MLPEstimator[S](_, conf, stop), _ => IdModelCreator(),
+      MLPValidator[S](_, conf))
     MLPModelSelectionValidator(validator, conf.cost)
   }
 }
@@ -173,7 +173,7 @@ extends Optimizer[Weights, MLP]
 }
 
 abstract class MLPStep[S: Sample]
-extends EstimationStep[Weights]
+extends Estimator[Weights]
 {
   val config: MLPLearnConf
 
@@ -210,8 +210,8 @@ extends MLPStep
 }
 
 case class MLPEstimator[S: Sample]
-(data: Nel[S], config: MLPLearnConf)
-extends Estimator[S, Weights]
+(data: Nel[S], config: MLPLearnConf, stop: StopCriterion[Weights])
+extends IterativeEstimator[Weights]
 {
   lazy val initialParams = config.initialParams(Sample[S].featureCount)
 

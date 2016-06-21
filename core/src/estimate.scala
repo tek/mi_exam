@@ -7,36 +7,44 @@ import Step._
 
 import annotation.tailrec
 
-case class Estimation[M](iterations: Long, params: M)
+case class Est[M](iterations: Long, params: M)
 
-trait EstimationStep[M]
+trait Estimator[M]
 {
   def apply(params: M): M
 }
 
-abstract class Estimator[S: Sample, M]
+trait SimpleEstimator[M]
 {
-  def data: Nel[S]
-
   def initialParams: M
 
-  val step: EstimationStep[M]
+  val step: Estimator[M]
 
+  def stream: Stream[Task, Est[M]] = 
+    Stream.suspend(Stream.emit(Est(1, step(initialParams))))
+}
 
-  def result(iteration: Long, par: M) = Estimation(iteration, par)
+trait IterativeEstimator[M]
+extends SimpleEstimator[M]
+{
+  def stop: StopCriterion[M]
 
-  def run(stop: StopCriterion[M]): Estimation[M] = {
+  def result(iteration: Long, par: M) = Est(iteration, par)
+
+  implicit def strat = Strategy.sequential
+
+  def run: Task[Est[M]] = {
     @tailrec
-    def go(iteration: Long, par: M, prev: Option[M]): Estimation[M] = {
+    def go(iteration: Long, par: M, prev: Option[M]): Est[M] = {
       if (stop(iteration, par, prev)) result(iteration, par)
       else go(iteration + 1, step(par), Some(par))
     }
-    go(0, initialParams, None)
+    Task(go(0, initialParams, None))
   }
 
-  type Ret = Stream[Task, Estimation[M]]
+  type Ret = Stream[Task, Est[M]]
 
-  def stream(stop: StopCriterion[M]): Ret = {
+  override def stream: Ret = {
     def go(iteration: Long, par: M, prev: Option[M]): Ret = {
       Stream.emit(result(iteration, par)) ++ {
         if (stop(iteration, par, prev)) Stream.empty
@@ -44,9 +52,5 @@ abstract class Estimator[S: Sample, M]
       }
     }
     go(0, initialParams, None)
-  }
-
-  def runSteps(count: Long) = {
-    run(StepCountStopCriterion[M](count))
   }
 }

@@ -50,7 +50,9 @@ extends Spec
 
   lazy val data = Nel(sample)
 
-  lazy val train = RBFEstimator(data, conf)
+  lazy val stop = StepCountStopCriterion[RBFs[BF]](1)
+
+  lazy val train = RBFEstimator(data, conf, stop)
 
   def step = train.step
 
