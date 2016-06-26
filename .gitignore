@@ -1,7 +1,5 @@
 .bundle
 .DS_Store
-bin
-gen
 tmp
 local.properties
 *.log

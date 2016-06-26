@@ -18,10 +18,12 @@ extends MultiBuild("mi_exam", deps = MiDeps)
 
   lazy val rbf = "rbf" << core
 
+  lazy val svm = "svm" << core
+
   lazy val viz = ("viz" << core)
     .settings(session)
 
-  lazy val unit = ("unit" << mlp << rbf << viz)
+  lazy val unit = ("unit" << mlp << rbf << viz << svm)
     .settings(session)
     .settingsV(
       javaOptions += {
