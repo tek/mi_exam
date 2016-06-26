@@ -6,9 +6,14 @@ import Keys._
 object MiDeps
 extends tryp.Deps
 {
+  val specsV = "3.8"
+
+  def testScoped = ids(
+    "org.specs2" %% "specs2-cats" % specsV,
+    "org.specs2" %% "specs2-matcher-extra" % specsV
+  )
+
   override def deps = super.deps ++ Map(
-    "core" → core,
-    "viz" → viz,
     "macro-console" → (macroConsole ++ core ++ viz)
   )
 
@@ -29,7 +34,7 @@ extends tryp.Deps
     "org.tpolecat" %% "atto-compat-cats04" % "0.5.0-SNAPSHOT"
   ) ++ imp
 
-  lazy val viz = commonTestIdsScoped ++ ids(
+  lazy val viz = testScoped ++ ids(
     "org.http4s" %% "http4s-blaze-client" % "0.14.0a-SNAPSHOT",
     "org.http4s" %% "http4s-circe" % "0.14.0a-SNAPSHOT",
     "io.circe" %% "circe-core" % "0.+",
@@ -39,13 +44,12 @@ extends tryp.Deps
     "com.github.wookietreiber" %% "scala-chart" % "0.+"
   )
 
-  override val specsV = "3.7"
-
-  override lazy val unit = super.unit ++ ids(
+  lazy val unit = ids(
+    "org.specs2" %% "specs2-scalacheck" % specsV,
     pulsar("unit-core")
   ) ++ imp
 
-  def macroConsole = ids(
+  lazy val macroConsole = ids(
     pulsar("core")
   )
 }
