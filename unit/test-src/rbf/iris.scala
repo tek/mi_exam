@@ -12,9 +12,9 @@ extends IrisSpecBase[RBFs[GaussBF], Double]
 
   val eta = 1d
 
-  val lambda = 1d
+  val lambda = 2d
 
-  // override def trials = Some(1)
+  override def trials = Some(1)
 
   lazy val conf = RBFLearnConf.default[GaussBF, Iris](rbfs, eta, lambda)
 

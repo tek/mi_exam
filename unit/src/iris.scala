@@ -6,8 +6,6 @@ import atto.compat.cats._
 
 import scalaz.stream._
 
-import breeze.linalg.Transpose
-
 import spire.implicits._
 
 import viz.SamplePlotting

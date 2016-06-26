@@ -146,7 +146,7 @@ case class KMeans[P: BasisFunction: UpdateParams]
 
 case class KMeansStep[S: Sample, P: BasisFunction: UpdateParams]
 (data: Nel[Col], config: RBFLearnConf[P])
-extends Estimator[RBFs[P]]
+extends EstimationStep[RBFs[P]]
 {
   def apply(params: RBFs[P]): RBFs[P] = {
     KMeans(data, config, params).updateBf

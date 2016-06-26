@@ -173,7 +173,7 @@ extends Optimizer[Weights, MLP]
 }
 
 abstract class MLPStep[S: Sample]
-extends Estimator[Weights]
+extends EstimationStep[Weights]
 {
   val config: MLPLearnConf
 

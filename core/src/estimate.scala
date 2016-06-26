@@ -9,25 +9,33 @@ import annotation.tailrec
 
 case class Est[M](iterations: Long, params: M)
 
-trait Estimator[M]
+trait EstimationStep[M]
 {
   def apply(params: M): M
 }
 
-trait SimpleEstimator[M]
+trait Estimator[M]
 {
-  def initialParams: M
+  def stream: Stream[Task, Est[M]]
+}
 
-  val step: Estimator[M]
+trait SimpleEstimator[M]
+extends Estimator[M]
+{
+  def go: String Xor M
 
-  def stream: Stream[Task, Est[M]] = 
-    Stream.suspend(Stream.emit(Est(1, step(initialParams))))
+  def stream: Stream[Task, Est[M]] =
+    Stream.suspend(go map (e => Stream.emit(Est(1, e))) getOrElse Stream.empty)
 }
 
 trait IterativeEstimator[M]
-extends SimpleEstimator[M]
+extends Estimator[M]
 {
+  def initialParams: M
+
   def stop: StopCriterion[M]
+
+  val step: EstimationStep[M]
 
   def result(iteration: Long, par: M) = Est(iteration, par)
 

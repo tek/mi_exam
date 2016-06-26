@@ -55,7 +55,7 @@ object Learn
 }
 
 case class CrossValidator[A, P, M, O](data: Nel[A],
-  config: ModelSelectionConf, estimator: Nel[A] => SimpleEstimator[P],
+  config: ModelSelectionConf, estimator: Nel[A] => Estimator[P],
   modelCreator: Nel[A] => ModelCreator[P, M],
   validator: Nel[A] => Validator[A, M, O])
 extends ModelSelector[A, P, O]
