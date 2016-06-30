@@ -5,12 +5,6 @@ import sbt._, Keys._
 object Build
 extends MultiBuild("mi_exam", deps = MiDeps)
 {
-  lazy val session =
-    List(
-      fork := true,
-      javaOptions += s"-Dtryp.mi.sessions=${target.value / "sessions"}"
-    )
-
   lazy val core = tdp("core")
     .logback("tag" -> "mi")
 
@@ -20,16 +14,19 @@ extends MultiBuild("mi_exam", deps = MiDeps)
 
   lazy val svm = "svm" << core
 
-  lazy val viz = ("viz" << core)
-    .settings(session)
+  lazy val viz = "viz" << core
+
+  def blas =
+    "-Dcom.github.fommil.netlib.BLAS=com.github.fommil.netlib.NativeRefBLAS"
 
   lazy val unit = ("unit" << mlp << rbf << viz << svm)
-    .settings(session)
     .settingsV(
+      fork := true,
       javaOptions += {
         val datadir = (baseDirectory in ThisBuild).value / "data"
         s"-Ddatadir=$datadir"
-      }
+      },
+      javaOptions += blas
     )
 
   override def consoleImports = """
