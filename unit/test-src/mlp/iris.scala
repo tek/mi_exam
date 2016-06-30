@@ -12,7 +12,7 @@ extends IrisSpecBase[Weights, MLP]
 
   val layers = Nel(4)
 
-  val epsilon = 1e-4d
+  override val epsilon = 1e-4d
 
   // transfer function slope
   def beta = 3.3d

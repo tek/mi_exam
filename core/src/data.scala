@@ -1,38 +1,53 @@
 package tryp
 package mi
 
-import simulacrum._
+trait ModelClass[S]
 
-trait ModelClass
-
-case class LabeledClass(name: String)
-extends ModelClass
+trait NamedClass[S]
+extends ModelClass[S]
 {
+  def name: String
+
   override def toString = name
 }
 
-@typeclass trait Sample[S]
+trait AutoClass[S]
+extends NamedClass[S]
 {
-  def classes: Map[Double, ModelClass]
-  def cls(a: S): ModelClass
+  def name = this.className.toLowerCase
+}
+
+case class LabeledClass[S](name: String)
+extends NamedClass[S]
+
+@tc trait ModelClasses[S]
+{
+  def value(a: ModelClass[S]): Validated[String, Double]
+  def valueOrNaN(a: ModelClass[S]): Double = value(a).getOrElse(Double.NaN)
+}
+
+@tc abstract class Sample[S: ModelClasses]
+{
+  def classes: Nel[ModelClass[S]]
+  def cls(a: S): ModelClass[S]
   def feature(a: S): Col
-  def value(a: S): Double
   def range: Double = 1d
   def featureCount: Int
 
-  def predictedClass(pred: Double): ModelClass = {
-    classes
-      .minBy { case (v, cls) => (v - pred).abs }
-      ._2
-  }
+  def value(a: S): ValiDouble = ModelClasses[S].value(cls(a))
+
+  def valueOrNaN(a: S): Double = ModelClasses[S].valueOrNaN(cls(a))
+
+  def predictedClass(pred: Double): ModelClass[S] =
+    classes minBy (cls => (ModelClasses[S].valueOrNaN(cls) - pred).abs)
 }
 
-@typeclass trait ParamDiff[M]
+@tc trait ParamDiff[M]
 {
   def diff(a: M, b: M): Double
 }
 
-@typeclass trait ModelState[S]
+@tc trait ModelState[S]
 {
   def output(a: S): Double
 }

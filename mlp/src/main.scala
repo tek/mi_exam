@@ -167,7 +167,7 @@ extends Optimizer[Weights, MLP]
     val state = pred.value
     val back = backprop(state, pred.model)
     val mg = modelGradient(state, back)
-    val ce = cost.deriv.f(pred.sample.value, state.output)
+    val ce = cost.deriv.f(pred.sample.valueOrNaN, state.output)
     mg.map(_ * ce)
   }
 }
@@ -228,7 +228,7 @@ extends SampleValidation[S, MLP]
 
   lazy val predictedClass = Sample[S].predictedClass(output)
 
-  def error(cost: Func2) = cost.f(data.value, output)
+  def error(cost: Func2) = data.value map (cost.f(_, output))
 }
 
 case class MLPValidator[S: Sample]

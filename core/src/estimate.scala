@@ -16,21 +16,23 @@ trait EstimationStep[M]
 
 trait Estimator[M]
 {
-  def stream: Stream[Task, Est[M]]
+  def stream: Stream[Task, String ValidatedNel Est[M]]
 }
 
 trait SimpleEstimator[M]
 extends Estimator[M]
 {
-  def go: String Xor M
+  def go: String ValidatedNel M
 
-  def stream: Stream[Task, Est[M]] =
-    Stream.suspend(go map (e => Stream.emit(Est(1, e))) getOrElse Stream.empty)
+  def stream: Stream[Task, String ValidatedNel Est[M]] =
+    Stream.suspend(Stream.emit(go map (Est(1, _))))
 }
 
 trait IterativeEstimator[M]
 extends Estimator[M]
 {
+  private[this] type R = String ValidatedNel Est[M]
+
   def initialParams: M
 
   def stop: StopCriterion[M]
@@ -41,21 +43,21 @@ extends Estimator[M]
 
   implicit def strat = Strategy.sequential
 
-  def run: Task[Est[M]] = {
+  def run: Task[R] = {
     @tailrec
     def go(iteration: Long, par: M, prev: Option[M]): Est[M] = {
       if (stop(iteration, par, prev)) result(iteration, par)
       else go(iteration + 1, step(par), Some(par))
     }
-    Task(go(0, initialParams, None))
+    Task(go(0, initialParams, None).valid)
   }
 
-  type Ret = Stream[Task, Est[M]]
+  type Ret = Stream[Task, R]
 
   override def stream: Ret = {
     def go(iteration: Long, par: M, prev: Option[M]): Ret = {
-      Stream.emit(result(iteration, par)) ++ {
-        if (stop(iteration, par, prev)) Stream.empty
+      Stream.emit(result(iteration, par).validNel[String]) ++ {
+        if (stop(iteration, par, prev)) Stream.empty[Task, R]
         else Stream.suspend(go(iteration + 1, step(par), Some(par)))
       }
     }

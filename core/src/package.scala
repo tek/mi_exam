@@ -16,6 +16,8 @@ trait MITypes
   val Row = Transpose
 
   type Weights = Nel[Mat]
+
+  type ValiDouble = Validated[String, Double]
 }
 
 object `package`
@@ -30,6 +32,7 @@ with ModelState.ToModelStateOps
 with PullFunctions
 with StreamInstances
 with ToXorStreamOps
+with ToListStreamOps
 with TaskInstances
 with BreezeInstances
 {

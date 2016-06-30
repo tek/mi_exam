@@ -3,37 +3,10 @@ package mi
 
 import viz._
 
-abstract class IrisSpecBase[P, O]
-extends Spec
+trait IrisSpecBase[P, O]
+extends MSVSpec[Iris, P, O]
 {
-  def is = s2"""
-  $title
-
-  learn a model with cross-validation $train
-  """
-
-  def title: String
-
   lazy val data = Iris.loadNel
-
-  def trials: Option[Int] = None
-
-  lazy val sconf = ModelSelectionConf.default(
-    epsilon = 1e-2d,
-    trials = trials,
-    folds = 10
-    )
-
-  val foldMargin = 1e-1d
-
-  def margin = foldMargin * (trials | sconf.folds)
-
-  val msv: ModelSelectionValidator[Iris, P, O]
-
-  def train = {
-    msv.printer.short()
-    msv.unsafeValidation.foldError must be_<=(margin)
-  }
 }
 
 abstract class PlottedIrisSpecBase[P: Plotting, O]
@@ -56,13 +29,14 @@ extends IrisSpecBase[P, O]
   lazy val pms =
     PlottedModelSelection[Iris, JFree[Iris], P, O](msv, stepInterval)
 
+  def validationError(pm: ModelSelectionValidation[Iris, P, O]) = {
+    pm.printer.short()
+    pm.foldError
+  }
+
   lazy val error =
-    pms.main
-      .map { valid =>
-        valid.printer.short()
-        valid.foldError
-      }
+    pms.main map (_ map validationError)
 
   lazy val plotTrain =
-    error computes be_<=(margin)
+    error computes beValid(be_<=(margin))
 }

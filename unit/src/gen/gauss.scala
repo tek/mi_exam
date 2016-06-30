@@ -6,6 +6,12 @@ import breeze.stats.distributions.MultivariateGaussian
 
 case class Data(feature: Col, num: Int)
 
+case class DataClass(num: Int)
+extends NamedClass[Data]
+{
+  def name = s"cls $num"
+}
+
 case class ClassConf(num: Int, features: Int, mean: Col, covariance: Double,
   members: Int)
   {
@@ -13,25 +19,23 @@ case class ClassConf(num: Int, features: Int, mean: Col, covariance: Double,
       MultivariateGaussian(mean, diag(Col.fill(features)(covariance)))
   }
 
-case class DataClass(conf: ClassConf, data: Nel[Data])
+case class ClassData(conf: ClassConf, data: Nel[Data])
 {
   def num = conf.num
   lazy val value = num.toDouble
-  lazy val label = LabeledClass(s"cls $num")
+  lazy val label = DataClass(num)
 }
 
 trait DataSample
 extends Sample[Data]
 {
-  def data: List[DataClass]
+  def data: Nel[ClassData]
 
-  lazy val nums = data.map(_.num)
+  lazy val classes = data.map(_.label: ModelClass[Data])
 
-  def classes = data.map(c => c.value -> c.label).toMap
+  lazy val classMap = data.map(a => a.num -> a.label).unwrap.toMap
 
-  def cls(a: Data) = LabeledClass(s"cls ${a.num}")
-
-  def value(a: Data) = a.num.toDouble
+  def cls(a: Data) = classMap.get(a.num).getOrElse(LabeledClass("invalid"))
 
   def feature(a: Data) = a.feature
 }

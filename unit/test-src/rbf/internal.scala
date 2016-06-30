@@ -11,30 +11,36 @@ import breeze.linalg._
 import breeze.numerics._
 import breeze.linalg.functions.euclideanDistance
 
-case class Dat(feature: Col, name: String)
+case class Dat(feature: Col, cls: ModelClass[Dat])
 
 object Dat
 {
-  val values = Map(
-    "lu" → 0.3,
-    "ru" → 0.6,
-    "ml" → 0.9
+  case object LU extends AutoClass[Dat]
+  case object RU extends AutoClass[Dat]
+  case object ML extends AutoClass[Dat]
+
+  val values = Map[ModelClass[Dat], Double](
+    LU -> 0.3,
+    RU -> 0.6,
+    ML -> 0.9,
   )
 
   implicit val datSample: Sample[Dat] =
     new Sample[Dat] {
-      def cls(a: Dat) = LabeledClass(a.name)
+      def cls(a: Dat) = a.cls
 
-      lazy val classes = Dat.values map {
-        case (n, v) => v -> LabeledClass(n)
-      }
+      lazy val classes = Nel(LU: ModelClass[Dat], RU, ML)
 
       def feature(a: Dat) = a.feature
 
-      def value(a: Dat) = Dat.values.get(a.name).getOrElse(-1.0)
-
       def featureCount = 2
     }
+
+    implicit def instance_ModelClasses_Dat: ModelClasses[Dat] =
+      new ModelClasses[Dat] {
+        def value(a: ModelClass[Dat]) = 
+          Validated.fromOption(Dat.values.get(a), s"no value for $a")
+      }
 }
 
 trait InternalBase
@@ -84,6 +90,8 @@ extends InternalBase
   update weights $updateWeights
   """
 
+  import Dat._
+
   val rbfs = 3
 
   val steps = 1
@@ -92,7 +100,7 @@ extends InternalBase
 
   def lambda = 2d
 
-  lazy val sample = Dat(Col(-1, -1), "ml")
+  lazy val sample = Dat(Col(-1, -1), ML)
 
   def x = sample.feature
 

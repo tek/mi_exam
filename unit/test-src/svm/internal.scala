@@ -6,26 +6,31 @@ import breeze.linalg._
 import breeze.numerics._
 import breeze.linalg.functions.euclideanDistance
 
-case class Dat(feature: Col, name: String)
+case class Dat(feature: Col, cls: ModelClass[Dat])
 
 object Dat
 {
-  val values = Map(
-    "one" → -1d,
-    "two" → 1d,
+  case object One extends AutoClass[Dat]
+  case object Two extends AutoClass[Dat]
+
+  val values = Map[ModelClass[Dat], Double](
+    One -> -1d,
+    Two -> 1d,
   )
+
+  implicit def instance_ModelClasses_Dat: ModelClasses[Dat] =
+    new ModelClasses[Dat] {
+      def value(a: ModelClass[Dat]) =
+        Validated.fromOption(Dat.values.get(a), s"no class for $a")
+    }
 
   implicit val datSample: Sample[Dat] =
     new Sample[Dat] {
-      def cls(a: Dat) = LabeledClass(a.name)
+      def cls(a: Dat) = a.cls
 
-      lazy val classes = Dat.values map {
-        case (n, v) => v -> LabeledClass(n)
-      }
+      lazy val classes = Nel(One: ModelClass[Dat], Two)
 
       def feature(a: Dat) = a.feature
-
-      def value(a: Dat) = Dat.values.get(a.name).getOrElse(-1.0)
 
       def featureCount = 2
     }
@@ -50,7 +55,7 @@ extends Spec
 
   lazy val b = train.offset.getOrElse(Inf)
 
-  def pt(d: Dat) = d.value * (train.w dot d.feature + b)
+  def pt(d: Dat) = d.valueOrNaN * (train.w dot d.feature + b)
 }
 
 class TrivialSVMSpec
@@ -68,13 +73,15 @@ extends InternalBase
   point on plane $point
   """
 
+  import Dat._
+
   def lambda = 0.5d
 
   val x1 = Col(1d, 1d)
 
   val x2 = Col(3d, 1d)
 
-  lazy val data = Nel(Dat(x1, "one"), Dat(x2, "two"))
+  lazy val data = Nel(Dat(x1, One), Dat(x2, Two))
 
   lazy val features = data map (_.feature)
 
@@ -82,7 +89,7 @@ extends InternalBase
 
   def dataDot = train.xdot must_== Mat((2d, 4d), (4d, 10d))
 
-  def labels = train.y must_== Mat((1d, -1d), (-1d, 1d))
+  def labels = train.yg must_== Mat((1d, -1d), (-1d, 1d))
 
   def gram = train.gram must_== Mat((2d, -4d), (-4d, 10d))
 
@@ -92,7 +99,7 @@ extends InternalBase
     train.supports.length must_== 2 and (
       train.supports.map(pt).toList must contain(beClose(1)).forall)
 
-  def offset = train.offset must beXorRight(beClose(-2))
+  def offset = train.offset must beValid(beClose(-2))
 
   def point = train.w dot Col(2d, 1d) must beClose(-b)
 }
@@ -107,15 +114,18 @@ extends InternalBase
   data points in the plane equation $dataPoints
   """
 
+  import Dat._
+
   def lambda = 1e-2
 
   lazy val data = Nel(
-    Dat(Col(0d, 1d), "one"),
-    Dat(Col(1d, 1d), "one"),
-    Dat(Col(1d, 2d), "one"),
-    Dat(Col(3d, 1d), "two"),
-    Dat(Col(3d, 3d), "two"),
-    Dat(Col(4d, 3d), "two"),
+    Dat(Col(0d, 1d), One),
+    Dat(Col(1d, 1d), One),
+    Dat(Col(1d, 2d), One),
+    Dat(Col(3d, 1d), Two),
+    Dat(Col(3d, 3d), Two),
+    Dat(Col(4d, 3d), Two),
+    Dat(Col(10d, 3d), Two),
   )
 
   lazy val features = data map (_.feature)

@@ -14,7 +14,7 @@ extends tryp.Deps
   )
 
   override def deps = super.deps ++ Map(
-    "macro-console" → (macroConsole ++ core ++ viz)
+    "macro-console" -> (macroConsole ++ core ++ viz)
   )
 
   def pulsar(pro: String) = {

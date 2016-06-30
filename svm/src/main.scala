@@ -7,20 +7,18 @@ import simulacrum._
 import scalaz.std.vector.{vectorInstance => zVectorInstance}
 import scalaz.syntax.zip._
 
-import spire.math.exp
-import spire.algebra._
-import spire.implicits._
-import spire.random._
-
 import breeze.linalg.{sum, squaredDistance, pinv, *, Axis}
 import breeze.linalg.functions.euclideanDistance
-import breeze.numerics.abs
+import breeze.numerics.{abs, signum}
 import breeze.generic.UFunc
 import breeze.optimize.proximal.{QuadraticMinimizer, ProjectBox, ProjectPos}
 
 import LearnConf._
 
 case class SVM(normal: Col, support: List[Col], offset: Double)
+{
+  def classify(x: Col) = signum(normal dot x - offset)
+}
 
 case class SVMLearnConf(lambda: Double, cost: Func2)
 
@@ -39,7 +37,7 @@ extends Predictor[SVM, Double]
 {
   def apply[S: Sample](sample: S, model: SVM)
   : Prediction[S, SVM, Double] = {
-    ???
+    Prediction(sample, model, model.classify(sample.feature))
   }
 }
 
@@ -49,11 +47,11 @@ extends SimpleEstimator[SVM]
 {
   lazy val x = Mat(data.map(_.feature).toList: _*)
 
-  lazy val values = Col(data.map(_.value).toList: _*)
+  lazy val y = Col(data.map(_.valueOrNaN).toList: _*)
 
   lazy val rank = data.length
 
-  lazy val aeq = Mat(values)
+  lazy val aeq = Mat(y)
 
   lazy val beq = Col(0d)
 
@@ -69,15 +67,15 @@ extends SimpleEstimator[SVM]
 
   lazy val xdot = Mat.create(rank, rank, feat.map2(feat)(_ dot _).toArray)
 
-  lazy val y = values * values.t
+  lazy val yg = y * y.t
 
-  lazy val gram = xdot :* y
+  lazy val gram = xdot :* yg
 
   lazy val q = Col.ones[Double](rank)
 
   lazy val c = qm.minimize(gram, -q)
 
-  lazy val cy = c :* values
+  lazy val cy = c :* y
 
   lazy val w = sum(x(::, *) :* cy, Axis._0).t
 
@@ -85,11 +83,12 @@ extends SimpleEstimator[SVM]
 
   lazy val supports = supportIndexes.flatMap(data.lift)
 
-  lazy val support = 
-    Xor.fromOption(supports.headOption, "no support vectors found")
+  lazy val support =
+    Validated.fromOption(supports.headOption, "no support vectors found")
+      .toValidatedNel
 
   lazy val offset = support map { s =>
-    s.value - (w dot s.feature)
+    s.valueOrNaN - (w dot s.feature)
   }
 
   def go = offset map (b => SVM(w, supports.toList map (_.feature), b))

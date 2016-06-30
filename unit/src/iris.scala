@@ -10,35 +10,41 @@ import spire.implicits._
 
 import viz.SamplePlotting
 
-case class Iris(feature: Col, name: String)
+case class Iris(feature: Col, cls: ModelClass[Iris])
 
 object Iris
 extends IrisInstances
 {
-  val values = Map(
-    "setosa" → 0.3,
-    "versicolor" → 0.6,
-    "virginica" → 0.9
+  object Setosa extends AutoClass[Iris]
+  object Versicolor extends AutoClass[Iris]
+  object Virginica extends AutoClass[Iris]
+
+  val classes = Map(
+    "setosa" -> Setosa,
+    "versicolor" -> Versicolor,
+    "virginica" -> Virginica,
   )
 
-  lazy val parser: Parser[Iris] = {
+  lazy val parser: Parser[Option[Iris]] = {
     import atto.parser._
     val feat = numeric.double <~ char(',')
     for {
       f ← manyN(4, feat)
       _ ← string("Iris-")
       n ← takeText
-    } yield Iris(Col(f: _*), n)
+      cls = classes.get(n)
+    } yield cls.map(Iris(Col(f: _*), _))
   }
 
   lazy val datadir = sys.props.get("datadir").getOrElse(".")
 
-  lazy val load = {
+  lazy val load: Vector[Iris] = {
     io.linesR(s"$datadir/iris")
       .runLog
       .unsafePerformSyncAttempt
       .getOrElse(Vector())
       .flatMap(Iris.parser.parseOnly(_).option)
+      .flatten
   }
 
   def loadNel = {
@@ -51,17 +57,14 @@ extends IrisInstances
 
 trait IrisInstances
 {
-  implicit lazy val irisSample: Sample[Iris] =
-    new Sample[Iris] {
-      def cls(a: Iris) = LabeledClass(a.name)
+  implicit def irisSample(implicit mc: ModelClasses[Iris]): Sample[Iris] =
+    new Sample[Iris]()(mc) {
+      import Iris._
+      def cls(a: Iris) = a.cls
 
-      lazy val classes = Iris.values map {
-        case (n, v) => v -> LabeledClass(n)
-      }
+      def classes = Nel(Setosa, Versicolor, Virginica)
 
       def feature(a: Iris) = a.feature
-
-      def value(a: Iris) = Iris.values.get(a.name).getOrElse(-1.0)
 
       override def range = 10d
 
@@ -87,4 +90,15 @@ trait IrisInstances
         }
       }
     }
+
+    implicit def instance_ModelClasses_Iris: ModelClasses[Iris] =
+      new ModelClasses[Iris] {
+        def value(a: ModelClass[Iris]) =
+          a match {
+            case Iris.Setosa => Validated.valid(0.3)
+            case Iris.Versicolor => Validated.valid(0.6)
+            case Iris.Virginica => Validated.valid(0.9)
+            case _ => Validated.invalid(s"no class for $a")
+          }
+      }
 }

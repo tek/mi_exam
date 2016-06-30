@@ -3,8 +3,8 @@ package mi
 package svm
 
 import breeze.numerics._
-import breeze.linalg.norm
-import breeze.linalg.functions.euclideanDistance
+import breeze.linalg._
+import functions.euclideanDistance
 
 import org.specs2.ScalaCheck
 import org.specs2.scalacheck._
@@ -13,54 +13,47 @@ import org.scalacheck.util.Buildable
 import Prop._
 import Arbitrary.arbitrary
 
-case class Plane(normal: Col, bias: Double)
+case class Plane(normal: Col, bias: Double, pivot: Col)
 
-case class SVMData(plane: Plane, one: ClassConf, two: ClassConf)
+case class SVMData(rank: Int, plane: Plane, one: ClassConf, two: ClassConf)
+extends RandomConf
 {
   def classes = Nel(one, two)
 }
 
 object SVMGen
+extends GenBase
 {
   import Gen._
 
-  def range: Double = 10d
+  def range: Double = 1d
 
-  def oneAndOfN[F[_], A](count: Int, gen: Int => Gen[A])
-  (implicit b: Buildable[A, F[A]]) = for {
-    head <- gen(0)
-    tail <- Gen.sequence[F[A], A](1 to count map gen)
-  } yield cats.data.OneAnd[F, A](head, tail)
-
-  def nelOfN[A] = oneAndOfN[List, A] _
-
-  def genCol(features: Int) = for {
-    d <- containerOfN[Array, Double](features, choose(-range, range))
-  } yield Col(d)
-
-  def createClass(conf: ClassConf) = {
-      val data = conf.members.genNel(Data(conf.dist.draw(), conf.num))
-      DataClass(conf, data)
-    }
-
-  def genClass(num: Int, features: Int, members: Range, direction: Col) =
+  def genClass(num: Int, rank: Int, members: Range, pivot: Col,
+    direction: Col) =
     for {
       memberCount <- choose(members.min, members.max)
-      dist <- choose(0d, 3d)
-      mean = dist * direction
+      dist <- choose(2d, 5d)
+      mean = pivot + (dist * direction)
       covariance <- choose[Double](0.0001d, range)
-    } yield ClassConf(num, features, mean, covariance, memberCount)
+    } yield ClassConf(num, rank, mean, covariance, memberCount)
 
-  def genPlane(features: Int) = for {
-    normal <- genCol(features)
-    bias <- choose[Double](0d, range)
-  } yield Plane(normal / norm(normal), bias)
-
-  def svm(maxFeatures: Int, maxClasses: Int, members: Range) =
+  def pointInPlane(normal: Col, bias: Double, rank: Int) =
     for {
-      features <- choose(3, maxFeatures)
-      plane <- genPlane(features)
-      one <- genClass(0, features, members, plane.normal)
-      two <- genClass(0, features, members, -plane.normal)
-    } yield SVMData(plane, one, two)
+      l <- genCol(rank)
+    } yield l * (bias / (normal dot l))
+
+  def genPlane(rank: Int) = for {
+    w <- genCol(rank)
+    normal = normalize(w)
+    bias <- choose[Double](0d, range)
+    pivot <- pointInPlane(normal, bias, rank)
+  } yield Plane(normal, bias, pivot)
+
+  def svm(maxFeatures: Int, members: Range) =
+    for {
+      rank <- choose(3, maxFeatures)
+      plane <- genPlane(rank)
+      one <- genClass(1, rank, members, plane.pivot, plane.normal)
+      two <- genClass(-1, rank, members, plane.pivot, -plane.normal)
+    } yield SVMData(rank, plane, one, two)
 }

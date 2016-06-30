@@ -34,3 +34,17 @@ trait ToXorStreamOps
   : XorStreamOps[F, A, B] =
     new XorStreamOps(v)
 }
+
+final class ListStreamOps[F[_], A](val self: List[Stream[F, A]])
+extends AnyVal
+{
+  def flatSequence =
+    self.foldLeft(Stream.empty[F, A])(_ ++ _)
+}
+
+trait ToListStreamOps
+{
+  implicit def ToListStreamOps[F[_], A](x: List[Stream[F, A]])
+  : ListStreamOps[F, A] =
+    new ListStreamOps(x)
+}

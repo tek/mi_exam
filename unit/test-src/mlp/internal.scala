@@ -2,29 +2,32 @@ package tryp
 package mi
 package mlp
 
+case class Dat(feature: Col, value: Double)
+
+object Dat
+{
+  object Cls extends AutoClass[Dat]
+
+  implicit def instance_ModelClasses_Dat: ModelClasses[Dat] =
+    new ModelClasses[Dat] {
+      def value(a: ModelClass[Dat]) = 1.0.valid
+    }
+
+  implicit val datSample: Sample[Dat] =
+    new Sample[Dat] {
+      def cls(a: Dat) = a.cls
+
+      lazy val classes = Nel(Cls: ModelClass[Dat])
+
+      def feature(a: Dat) = a.feature
+
+      def featureCount = 2
+    }
+}
+
 trait InternalBase
 extends Spec
 {
-  case class Dat(feature: Col, value: Double)
-
-  object Dat
-  {
-    implicit val datSample: Sample[Dat] =
-      new Sample[Dat] {
-        val name = "default"
-
-        def cls(a: Dat) = LabeledClass(name)
-
-        lazy val classes = Map(1.0 -> LabeledClass(name))
-
-        def feature(a: Dat) = a.feature
-
-        def value(a: Dat) = a.value
-
-        def featureCount = 2
-      }
-  }
-
   val sample: Dat
 
   val conf: MLPLearnConf

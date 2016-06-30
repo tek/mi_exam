@@ -7,6 +7,8 @@ import java.util.concurrent.Executors
 import fs2._
 import fs2.util._
 
+import cats.data.Validated._
+
 import breeze.plot._
 
 import ModelSelection._
@@ -44,7 +46,9 @@ case class PlottedModelSelection[A: Sample, B: PlotBackend, P: Plotting, O]
 (msv: ModelSelectionValidator[A, P, O],
   stepInterval: FiniteDuration = 100.millis)
 {
-  type MS = ModelSelectionValidation[A, P, O]
+  type M = ModelSelection[A, P, O]
+  type MSV = ModelSelectionValidation[A, P, O]
+  type Res = ValidatedNel[String, MSV]
 
   type L = Learn[A, P, O]
 
@@ -56,26 +60,21 @@ case class PlottedModelSelection[A: Sample, B: PlotBackend, P: Plotting, O]
 
   lazy val finished = async.signalOf[Task, Boolean](false).unsafeRun
 
-  lazy val results: Stream[Task, ModelSelection[A, P, O]] = {
-    val em = Stream.empty[Task, ModelSelection[A, P, O]]
+  lazy val results: Stream[Task, String ValidatedNel M] = {
+    val em = Stream.empty[Task, String ValidatedNel M]
     def send(t: Learn[A, P, O]) =
         Stream.eval(q.enqueue1(t)).flatMap(_ => em)
     msv.unified.flatMap {
-      case l @ Learn.Fold(train, test) => send(l)
-      case l @ Learn.Result(m) =>
-        send(l) ++ Stream.emit(m)
-      case l => send(l)
+      case Valid(l @ Learn.Fold(train, test)) => send(l)
+      case Valid(l @ Learn.Result(m)) =>
+        send(l) ++ Stream.emit(m.valid)
+      case Valid(l) => send(l)
+      case i @ Invalid(_) => Stream.emit(i)
     }
   }
 
-  lazy val validation = {
-    results.runLog.map { res =>
-      val stats = res.map(_.validation.stats(msv.cost))
-      ModelSelectionValidation(res, stats, msv.config, msv.totalCount)
-    }
-  }
-
-  def unsafeValidation = validation.unsafeRun
+  lazy val validation =
+    ModelSelectionValidator.validation(msv, results)
 
   def plotLoop(plotter: Plotter[A, B, P]): Trans[Learn[A, P, O], Unit] = {
     type P1 = P
@@ -107,8 +106,8 @@ case class PlottedModelSelection[A: Sample, B: PlotBackend, P: Plotting, O]
     finished.interrupt(s.pull(plotLoop(Plotter.empty[A, B, P])))
   }
 
-  def waitForCompletion(res: Either[Unit, MS])
-  : Trans[Option[Either[Unit, MS]], MS] = {
+  def waitForCompletion(res: Either[Unit, Res])
+  : Trans[Option[Either[Unit, Res]], Res] = {
     import Pull._
     receive1 {
       case a #: h =>
@@ -120,14 +119,14 @@ case class PlottedModelSelection[A: Sample, B: PlotBackend, P: Plotting, O]
     }
   }
 
-  def plotWithTerminator: Stream[Task, Option[Either[Unit, MS]]] =
-    plotStream.map(_ => SLeft[Unit, MS](())).noneTerminate
+  def plotWithTerminator: Stream[Task, Option[Either[Unit, Res]]] =
+    plotStream.map(_ => SLeft[Unit, Res](())).noneTerminate
 
-  def mainT: Stream[Task, Option[Either[Unit, MS]]] =
-    Stream.eval(validation).map(SRight[Unit, MS](_).some)
+  def mainT: Stream[Task, Option[Either[Unit, Res]]] =
+    validation.map(SRight[Unit, Res](_).some)
 
-  def main =
+  def main: Stream[Task, Res] =
     mainT
       .merge(plotWithTerminator)
-      .pull(waitForCompletion(SLeft[Unit, MS](())))
+      .pull(waitForCompletion(SLeft[Unit, Res](())))
 }

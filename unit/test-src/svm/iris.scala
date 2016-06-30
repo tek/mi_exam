@@ -8,9 +8,9 @@ extends IrisSpecBase[SVM, Double]
 {
   def title = "Support Vector Machine"
 
-  val eta = 1d
-
   val lambda = 2d
+
+  // override lazy val data = ToBinary[Iris](Iris.load)
 
   override def trials = Some(1)
 

@@ -9,9 +9,9 @@ abstract class SampleValidation[S: Sample, O]
 
   def output: Double
 
-  def predictedClass: ModelClass
+  def predictedClass: ModelClass[S]
 
-  def error(cost: Func2): Double
+  def error(cost: Func2): ValiDouble
 
   def actualClass = data.cls
 
@@ -33,7 +33,7 @@ extends SampleValidation[S, Double]
 
   lazy val predictedClass = Sample[S].predictedClass(output)
 
-  def error(cost: Func2) = cost.f(data.value, output)
+  def error(cost: Func2) = data.value map (cost.f(_, output))
 }
 
 case class EstimationStats(successes: Int, errors: Nel[Double])
@@ -48,8 +48,8 @@ case class EstimationStats(successes: Int, errors: Nel[Double])
 case class Validation[S, O](data: Nel[SampleValidation[S, O]])
 {
   def stats(cost: Func2) = {
-    val errors = data.map(_.error(cost))
-    EstimationStats(data.filter(_.success).length, errors)
+    data.traverseU(_.error(cost).toValidatedNel)
+      .map(EstimationStats(data.filter(_.success).length, _))
   }
 }
 

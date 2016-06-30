@@ -6,11 +6,15 @@ import fs2.util._
 import Step._
 import Stream.Handle
 
+import scalaz.std.list.{listInstance => zListInstance}
+import scalaz.syntax.zip._
+
 import cats.data.Xor._
+import cats.data.Validated._
 
 object ModelSelection
 {
-  type Result[A, P, O] = Stream[Task, Learn[A, P, O]]
+  type Result[A, P, O] = Stream[Task, String ValidatedNel Learn[A, P, O]]
 
   type Trans[A, B] = Handle[Task, A] => Pull[Task, B, Handle[Task, B]]
 }
@@ -29,7 +33,7 @@ trait ModelSelector[A, P, O]
 
   def data: Nel[A]
 
-  def result: List[String Xor Result[A, P, O]]
+  def result: Result[A, P, O]
 
   def validatedCount: Int
 }
@@ -52,6 +56,9 @@ object Learn
 
   case class Done[A, P, O]()
   extends Learn[A, P, O]
+
+//   case class Error[A, P, O](msg: String)
+//   extends Learn[A, P, O]
 }
 
 case class CrossValidator[A, P, M, O](data: Nel[A],
@@ -60,11 +67,13 @@ case class CrossValidator[A, P, M, O](data: Nel[A],
   validator: Nel[A] => Validator[A, M, O])
 extends ModelSelector[A, P, O]
 {
-  def result: List[String Xor Result[A, P, O]] = intervals.map(interval).toList
+  def result: Result[A, P, O] =
+    intervals.map(interval).flatSequence
 
-  def interval(start: Int): String Xor Result[A, P, O] = {
+  def interval(start: Int): Result[A, P, O] = {
     separate(start)
-      .map { case (a, b) => learn(a, b) }
+      .map(learn)
+      .fold(a => Stream.emit(a.invalid), identity)
   }
 
   def validatedCount = config.trials map(_ * testSize) getOrElse(l.length)
@@ -75,24 +84,27 @@ extends ModelSelector[A, P, O]
 
   private[this] def intervals = {
     val all = 0 until l.length by testSize
-    config.trials map(all.take) getOrElse(all)
+    config.trials
+      .map(all.take)
+      .getOrElse(all)
+      .toList
   }
 
   private[this] lazy val sliceError = s"couldn't slice data by ${config.folds}"
 
   private[this] def separate(start: Int) = {
     val end = start + testSize
-    (l.slice(0, start) ++ l.slice(end, l.length - 1)).nelXor(sliceError) |@|
-      l.slice(start, end).nelXor(sliceError)
+    (l.slice(0, start) ++ l.slice(end, l.length - 1)).nelValid(sliceError) |@|
+      l.slice(start, end).nelValid(sliceError)
   }
 
   /* Stream the estimation intermediates on the writer side of the output of
    * `trans`, then transform into the Learn algebra.
    */
   private[this] def learn(trainData: Nel[A], testData: Nel[A])
-  : Stream[Task, Learn[A, P, O]] = {
+  : Stream[Task, String ValidatedNel Learn[A, P, O]] = {
     type PP = P
-    type In = Est[P]
+    type In = String ValidatedNel Est[P]
     import Pull._
     type Out = In Xor In
     def trans(z: Option[In]): Trans[In, Out] = receive1Option {
@@ -103,29 +115,31 @@ extends ModelSelector[A, P, O]
         case None => done
       }
     }
-    Stream.emit(Learn.Fold[A, PP, O](trainData, testData)) ++
+    Stream.emit(Learn.Fold[A, PP, O](trainData, testData).valid) ++
       estimator(trainData).stream.pull(trans(None))
         .map {
-          case Left(e) => Learn.Step(e)
-          case Right(e) =>
+          case Left(e) => e map (Learn.Step(_))
+          // case Invalid(err) => log.error(s"model selection failed: $err")
+          case Right(v) => v map { e =>
             val model = modelCreator(trainData).run(e)
             Learn.Result(ModelSelection(e, validator(testData).run(model)))
+          }
         }
   }
 }
 
 case class ModelSelectionValidation[A, P, O]
-(results: Vector[ModelSelection[A, P, O]], stats: Vector[EstimationStats],
+(results: Nel[ModelSelection[A, P, O]], stats: Nel[EstimationStats],
  config: ModelSelectionConf, totalCount: Int)
 {
-  lazy val totalError = stats.map(_.totalError).sum
+  lazy val totalError = stats.map(_.totalError).toList.sum
 
   lazy val foldError = totalError / results.length
 
-  def info: Vector[ModelTrainInfo[A, P, O]] =
-    results.zip(stats).map { case (a, b) => ModelTrainInfo(a, b) }
+  def info: Nel[ModelTrainInfo[A, P, O]] =
+    results.fzip(stats).map { case (a, b) => ModelTrainInfo(a, b) }
 
-  def successes = stats.map(_.successes).sum
+  def successes = stats.map(_.successes).toList.sum
 
   def printer = MSPrinter(this, config, totalCount)
 }
@@ -153,7 +167,7 @@ extends Logging
   }
 
   def all(verbose: Boolean) = {
-    validation.info.foreach(fold(_, verbose))
+    validation.info.map(fold(_, verbose))
     log.info("")
     log.info("total error:" + f" $totalError%g".red)
     log.info("average fold error:" + f" $foldError%g".yellow)
@@ -172,6 +186,7 @@ extends Logging
 {
   private[this] type E = Est[P]
   private[this] type M = ModelSelection[A, P, O]
+  private[this] type MSV = ModelSelectionValidation[A, P, O]
 
   override def loggerName = List("msv")
 
@@ -181,31 +196,46 @@ extends Logging
 
   def config = cross.config
 
-  lazy val result = cats.data.XorT(cross.result)
-
-  lazy val errors = result.swap.collectRight
-
-  lazy val results: List[Stream[Task, Learn[A, P, O]]] = result.collectRight
+  lazy val result = cross.result
 
   def totalCount = cross.validatedCount
 
   def unified: Result[A, P, O] =
-    results.foldLeft(Stream.empty: Result[A, P, O])(_ ++ _) ++
-      Stream.emit(Learn.Done())
+    result ++ Stream.emit(Learn.Done().valid)
 
-  def model: Stream[Task, ModelSelection[A, P, O]] =
+  def model: Stream[Task, String ValidatedNel M] =
     unified
-      .collect { case Learn.Result(r) => r }
+      .collect {
+        case i @ Invalid(_) => i
+        case Valid(Learn.Result(r)) => Valid(r)
+      }
 
-  def unsafeModel =
-    model
-      .runLog.unsafeRun
+  lazy val validation =
+    ModelSelectionValidator.validation(this, model)
 
-  lazy val unsafeValidation = {
-    val res = unsafeModel
-    val stats = res.map(_.validation.stats(cost))
-    ModelSelectionValidation(res, stats, config, totalCount)
+  def printer = validation map (_.map(_.printer))
+}
+
+object ModelSelectionValidator
+{
+  def validation[A, P, O](msv: ModelSelectionValidator[A, P, O],
+    in: Stream[Task, String ValidatedNel ModelSelection[A, P, O]])
+  : Stream[Task, String ValidatedNel ModelSelectionValidation[A, P, O]] = {
+    Stream.eval(in.runLog)
+      .map(_.toList.sequenceU)
+      .map {
+        case i @ Invalid(_) => i
+        case Valid(l @ List(_*)) => l.nelValid(s"empty estimation stats")
+      }
+      .collect {
+        case Valid(r) =>
+          r.map(_.validation.stats(msv.cost)).sequenceU match {
+            case Valid(s) =>
+              Valid(ModelSelectionValidation(r, s, msv.config, msv.totalCount))
+            case Invalid(a) => Invalid(a)
+          }
+        case Invalid(a) => Invalid(a)
+      }
   }
 
-  def printer = MSPrinter(unsafeValidation, config, totalCount)
 }

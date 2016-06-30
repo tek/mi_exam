@@ -14,12 +14,15 @@ extends IrisSpecBase[RBFs[GaussBF], Double]
 
   val lambda = 2d
 
-  override def trials = Some(1)
+  // override def trials = Some(1)
 
   lazy val conf = RBFLearnConf.default[GaussBF, Iris](rbfs, eta, lambda)
 
   lazy val msv = RBF.msv(data, conf, sconf)
 }
+
+class NormalIrisSpec
+extends IrisSpec
 
 class PlottedIrisSpec
 extends PlottedIrisSpecBase[RBFs[GaussBF], Double]

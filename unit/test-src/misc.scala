@@ -13,6 +13,12 @@ import breeze.linalg._
 import breeze.numerics._
 import breeze.linalg.functions.euclideanDistance
 import breeze.plot._
+import breeze.optimize.proximal.QuadraticMinimizer
+import breeze.optimize.proximal.Constraint
+import breeze.optimize.proximal.ProjectPos
+import breeze.optimize.proximal.ProjectBox
+
+import org.scalacheck.Gen
 
 class BreezeSpec
 extends Spec
@@ -22,18 +28,12 @@ extends Spec
   """
 
   def test = {
-    val fig = Figure()
-    val plt = fig.subplot(0)
-    val x = linspace(0.0, 5.0, 50)
-    val y = linspace(8.0, 3.0, 50)
-    plt += plot(x, y)
-    fig.refresh()
-    Thread.sleep(2000)
-    fig.clearPlot(0)
-    val plt2 = fig.subplot(0)
-    plt2 += scatter(linspace(0.0, 5.0, 5), linspace(0.0, 5.0, 5), { _ => 0.01 })
-    fig.refresh()
-    Thread.sleep(2000)
+    val b = 5d
+    val w = Col(1d, 1d, 2d)
+    val nw = normalize(w)
+    val wx = nw * b
+    val planeGen: Gen[svm.Plane] = svm.SVMGen.genPlane(3)
+    val plane = planeGen.sample.get
     1 === 1
   }
 }
