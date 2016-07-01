@@ -42,19 +42,51 @@ object Plotter
     Plotter[A, B, P](PlotBackend[B].init, None)
 }
 
+object PlottedModelSelection
+{
+  implicit def strat = Strategy.sequential
+
+  implicit lazy val scheduler = Scheduler.fromFixedDaemonPool(1)
+
+  def plotLoop[A, B, P, O]
+  (plotter: Plotter[A, B, P], stepInterval: FiniteDuration)
+  : Trans[Learn[A, P, O], Unit] = {
+    type P1 = P
+    import Pull._
+    import Learn._
+    receive1 {
+      case a #: h =>
+        val rec = plotLoop((_: Plotter[A, B, P1]), stepInterval)(h)
+        a match {
+          case Go() =>
+            eval(plotter.setup) >> outputs(time.sleep[Task](1.seconds)) >>
+              rec(plotter)
+          case Step(e) =>
+            eval(plotter.step(e)).flatMap { plt =>
+              outputs(time.sleep[Task](stepInterval)) >> rec(plt)
+            }
+          case Fold(train, test) =>
+            eval(plotter.fold(train, test)) flatMap rec
+          case Done() =>
+            done
+          case Result(_) =>
+            eval(Task(())) >> rec(plotter)
+        }
+    }
+  }
+}
+
 case class PlottedModelSelection[A: Sample, B: PlotBackend, P: Plotting, O]
 (msv: ModelSelectionValidator[A, P, O],
   stepInterval: FiniteDuration = 100.millis)
 {
+  import PlottedModelSelection._
+
   type M = ModelSelection[A, P, O]
   type MSV = ModelSelectionValidation[A, P, O]
   type Res = ValidatedNel[String, MSV]
 
   type L = Learn[A, P, O]
-
-  implicit def strat = Strategy.sequential
-
-  implicit lazy val scheduler = Scheduler.fromFixedDaemonPool(1)
 
   lazy val q = async.unboundedQueue[Task, Learn[A, P, O]].unsafeRun
 
@@ -76,34 +108,9 @@ case class PlottedModelSelection[A: Sample, B: PlotBackend, P: Plotting, O]
   lazy val validation =
     ModelSelectionValidator.validation(msv, results)
 
-  def plotLoop(plotter: Plotter[A, B, P]): Trans[Learn[A, P, O], Unit] = {
-    type P1 = P
-    import Pull._
-    import Learn._
-    receive1 {
-      case a #: h =>
-        val rec = plotLoop((_: Plotter[A, B, P1]))(h)
-        a match {
-          case Go() =>
-            eval(plotter.setup) >> outputs(time.sleep[Task](1.seconds)) >>
-              rec(plotter)
-          case Step(e) =>
-            eval(plotter.step(e)).flatMap { plt =>
-              outputs(time.sleep[Task](stepInterval)) >> rec(plt)
-            }
-          case Fold(train, test) =>
-            eval(plotter.fold(train, test)) flatMap rec
-          case Done() =>
-            done
-          case Result(_) =>
-            eval(Task(())) >> rec(plotter)
-        }
-    }
-  }
-
   def plotStream: fs2.Stream[Task, Unit] = {
     val s = Stream.eval(Task(Learn.Go[A, P, O]())) ++ q.dequeue
-    finished.interrupt(s.pull(plotLoop(Plotter.empty[A, B, P])))
+    finished.interrupt(s.pull(plotLoop(Plotter.empty[A, B, P], stepInterval)))
   }
 
   def waitForCompletion(res: Either[Unit, Res])
