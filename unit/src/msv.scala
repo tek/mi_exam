@@ -25,8 +25,8 @@ extends Spec
   lazy val sconf = ModelSelectionConf.default(
     epsilon = epsilon,
     trials = trials,
-    folds = folds
-    )
+    folds = folds,
+  )
 }
 
 trait MSVSpec[S, P, O]

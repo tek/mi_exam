@@ -38,7 +38,7 @@ extends IrisInstances
 
   lazy val datadir = sys.props.get("datadir").getOrElse(".")
 
-  lazy val load: Vector[Iris] = {
+  lazy val all: Vector[Iris] = {
     io.linesR(s"$datadir/iris")
       .runLog
       .unsafePerformSyncAttempt
@@ -47,8 +47,9 @@ extends IrisInstances
       .flatten
   }
 
-  def loadNel = {
-    util.Random.shuffle(load) match {
+  def loadNel(implicit mc: ModelClasses[Iris]) = {
+    val targets = all.filter(a => mc.classes.contains(a.cls))
+    util.Random.shuffle(targets) match {
       case Vector(head, tail @ _*) => Nel(head, tail: _*)
       case _ => sys.error("no data")
     }
@@ -61,8 +62,6 @@ trait IrisInstances
     new Sample[Iris]()(mc) {
       import Iris._
       def cls(a: Iris) = a.cls
-
-      def classes = Nel(Setosa, Versicolor, Virginica)
 
       def feature(a: Iris) = a.feature
 
@@ -78,26 +77,18 @@ trait IrisInstances
       def plotCount = 4
 
       def projections = List((0, 1), (1, 2), (2, 3), (3, 0))
-
-      def projectionRanges = projections.map {
-        case (x, y) => ranges(x) -> ranges(y)
-      }
-
-      def plots(data: List[Col], size: Array[Double]) = {
-        projections map {
-          case (a, b) =>
-            Array(data.map(_(a)).toArray, data.map(_(b)).toArray, size)
-        }
-      }
     }
 
-    implicit def instance_ModelClasses_Iris: ModelClasses[Iris] =
+    implicit lazy val instance_ModelClasses_Iris: ModelClasses[Iris] =
       new ModelClasses[Iris] {
+        import Iris._
+        def classes = Nel(Setosa, Versicolor, Virginica)
+
         def value(a: ModelClass[Iris]) =
           a match {
-            case Iris.Setosa => Validated.valid(0.3)
-            case Iris.Versicolor => Validated.valid(0.6)
-            case Iris.Virginica => Validated.valid(0.9)
+            case Setosa => Validated.valid(0.3)
+            case Versicolor => Validated.valid(0.6)
+            case Virginica => Validated.valid(0.9)
             case _ => Validated.invalid(s"no class for $a")
           }
       }

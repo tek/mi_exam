@@ -35,5 +35,6 @@ trait GenBase
 
 trait RandomConf
 {
+  def rank: Int
   def classes: Nel[ClassConf]
 }

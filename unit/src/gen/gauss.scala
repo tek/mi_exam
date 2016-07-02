@@ -31,8 +31,6 @@ extends Sample[Data]
 {
   def data: Nel[ClassData]
 
-  lazy val classes = data.map(_.label: ModelClass[Data])
-
   lazy val classMap = data.map(a => a.num -> a.label).unwrap.toMap
 
   def cls(a: Data) = classMap.get(a.num).getOrElse(LabeledClass("invalid"))

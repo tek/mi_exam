@@ -15,7 +15,7 @@ import breeze.optimize.proximal.{QuadraticMinimizer, ProjectBox, ProjectPos}
 
 import LearnConf._
 
-case class SVM(normal: Col, support: List[Col], offset: Double)
+case class SVM(normal: Col, offset: Double, support: List[Col])
 {
   def classify(x: Col) = signum(normal dot x - offset)
 }
@@ -91,7 +91,7 @@ extends SimpleEstimator[SVM]
     s.valueOrNaN - (w dot s.feature)
   }
 
-  def go = offset map (b => SVM(w, supports.toList map (_.feature), b))
+  def go = offset map (b => SVM(w, b, supports.toList map (_.feature)))
 }
 
 case class SVMValidator[S: Sample]

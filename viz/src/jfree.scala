@@ -11,7 +11,7 @@ import org.jfree.chart.axis._
 
 import scalax.chart._, api._
 
-import Plotting.ops._
+import ParamPlotting.ops._
 
 case class JFreeData(chart: XYChart, samples: DefaultXYZDataset,
   estimation: DefaultXYZDataset)
@@ -30,11 +30,16 @@ extends Logging
 
       def samplePlotting = SamplePlotting[A]
 
+      def estimationRenderer =
+        fconf.shape match {
+          case Shape.Line => new XYLineAndShapeRenderer(true, false)
+          case Shape.Scatter => new XYBubbleRenderer
+        }
+
       def data(xrange: (Double, Double), yrange: (Double, Double)) = {
         val samples = new DefaultXYZDataset
         val estimation = new DefaultXYZDataset
         val r1 = new XYBubbleRenderer
-        val r2 = new XYBubbleRenderer
         val ax = new NumberAxis
         val ay = new NumberAxis
         ax.setAutoRange(false)
@@ -44,8 +49,8 @@ extends Logging
         val plot = new XYPlot(samples, ax, ay, r1)
         plot.setDataset(0, samples)
         plot.setDataset(1, estimation)
-        plot.setRenderer(r1)
-        plot.setRenderer(1, r2)
+        plot.setRenderer(0, r1)
+        plot.setRenderer(1, estimationRenderer)
         val chart = XYChart(plot, "mi", false, ChartTheme.Default)
         JFreeData(chart, samples, estimation)
       }
@@ -68,7 +73,7 @@ extends Logging
         update(a)(_.samples, "samples", data, size)
       }
 
-      def step[P: Plotting](a: JFree[A])(params: P) = {
+      def step[P: ParamPlotting](a: JFree[A])(params: P) = {
         log.debug(s"Plotting step: $params")
         val plot = params.estimationPlot
         val z = (0 until plot.points.length).map(plot.size).toArray

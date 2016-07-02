@@ -22,13 +22,13 @@ object Dat
     new ModelClasses[Dat] {
       def value(a: ModelClass[Dat]) =
         Validated.fromOption(Dat.values.get(a), s"no class for $a")
+
+      lazy val classes = Nel(One: ModelClass[Dat], Two)
     }
 
   implicit val datSample: Sample[Dat] =
     new Sample[Dat] {
       def cls(a: Dat) = a.cls
-
-      lazy val classes = Nel(One: ModelClass[Dat], Two)
 
       def feature(a: Dat) = a.feature
 

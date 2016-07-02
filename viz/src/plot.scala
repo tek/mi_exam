@@ -9,13 +9,12 @@ import fs2.util.Task
   def setup(a: A): Task[Unit]
   def init: A
   def fold(a: A)(data: List[Col]): Task[Unit]
-  def step[P: Plotting](a: A)(params: P): Task[Unit]
+  def step[P: ParamPlotting](a: A)(params: P): Task[Unit]
 }
 
-@tc abstract class Plotting[P]
-extends AnyRef
+@tc trait ParamPlotting[P]
 {
-  def estimationPlot(data: P): Scatter
+  def estimationPlot(data: P): Dataset
 }
 
 @tc abstract class SamplePlotting[A: Sample]
@@ -25,8 +24,20 @@ extends AnyRef
 
   def ranges: List[Range]
   def plotCount: Int
-  def plots(data: List[Col], size: Array[Double]): List[Array[Array[Double]]]
-  def projectionRanges: List[(Range, Range)]
+  def projections: List[(Int, Int)]
+
+  def projectionRanges =
+    projections.map {
+      case (x, y) => ranges(x) -> ranges(y)
+    }
+
+  def plots(data: List[Col], size: Array[Double]): List[Array[Array[Double]]] =
+  {
+    projections map {
+      case (a, b) =>
+        Array(data.map(_(a)).toArray, data.map(_(b)).toArray, size)
+    }
+  }
 }
 
-case class Scatter(points: List[Col], size: Int => Double)
+case class Dataset(points: List[Col], size: Array[Double])

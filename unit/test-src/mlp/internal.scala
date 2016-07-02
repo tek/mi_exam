@@ -11,13 +11,13 @@ object Dat
   implicit def instance_ModelClasses_Dat: ModelClasses[Dat] =
     new ModelClasses[Dat] {
       def value(a: ModelClass[Dat]) = 1.0.valid
+
+      lazy val classes = Nel(Cls: ModelClass[Dat])
     }
 
   implicit val datSample: Sample[Dat] =
     new Sample[Dat] {
       def cls(a: Dat) = a.cls
-
-      lazy val classes = Nel(Cls: ModelClass[Dat])
 
       def feature(a: Dat) = a.feature
 

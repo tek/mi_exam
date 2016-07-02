@@ -22,17 +22,19 @@ extends NamedClass[S]
 
 @tc trait ModelClasses[S]
 {
+  def classes: Nel[ModelClass[S]]
   def value(a: ModelClass[S]): Validated[String, Double]
   def valueOrNaN(a: ModelClass[S]): Double = value(a).getOrElse(Double.NaN)
 }
 
 @tc abstract class Sample[S: ModelClasses]
 {
-  def classes: Nel[ModelClass[S]]
   def cls(a: S): ModelClass[S]
   def feature(a: S): Col
   def range: Double = 1d
   def featureCount: Int
+
+  def classes = ModelClasses[S].classes
 
   def value(a: S): ValiDouble = ModelClasses[S].value(cls(a))
 

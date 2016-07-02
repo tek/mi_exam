@@ -12,13 +12,13 @@ import breeze.plot._
 trait PlottingInstances
 {
   implicit lazy val instance_Plotting_Weights =
-    new Plotting[Weights] {
+    new ParamPlotting[Weights] {
       def estimationCenters(data: Weights): Array[Array[Double]] = {
         Array(Array())
       }
 
-      def estimationPlot(data: Weights): Scatter = {
-        Scatter(List(), _ => 1d)
+      def estimationPlot(data: Weights): Dataset = {
+        Dataset(List(), Array(1d))
       }
     }
 }

@@ -6,7 +6,16 @@ import scalax.chart._, api._
 
 import scala.swing._
 
-case class FigureConf(name: String, rows: Int, width: Int, height: Int)
+sealed trait Shape
+
+object Shape
+{
+  case object Line extends Shape
+  case object Scatter extends Shape
+}
+
+case class FigureConf(name: String, rows: Int, width: Int, height: Int,
+  shape: Shape)
 
 object FigureConf
 {
@@ -14,9 +23,10 @@ object FigureConf
     name: String,
     rows: Int = 1,
     width: Int = 800,
-    height: Int = 600
+    height: Int = 600,
+    shape: Shape = Shape.Scatter
   ) =
-      FigureConf(name, rows, width, height)
+      FigureConf(name, rows, width, height, shape)
 }
 
 case class FigureState(frame: Frame)

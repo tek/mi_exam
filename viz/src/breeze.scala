@@ -20,7 +20,7 @@ case class BreezeData(figure: BreezeFigure)
   def refresh() = figure.refresh()
 }
 
-import Plotting.ops._
+import ParamPlotting.ops._
 
 trait BreezeInstances
 {
@@ -34,11 +34,11 @@ trait BreezeInstances
 
       def fold(a: BreezeData)(b: List[Col]) = {
         Task {
-          a.plot += scatterPlot(Scatter(b, _ => dataSize))
+          a.plot += scatterPlot(Dataset(b, b.length.gen(dataSize).toArray))
         }
       }
 
-      def step[P: Plotting](a: BreezeData)(params: P) = {
+      def step[P: ParamPlotting](a: BreezeData)(params: P) = {
         Task {
           a.clear()
           a.plot += scatterPlot(params.estimationPlot)
@@ -48,7 +48,7 @@ trait BreezeInstances
 
       def dataSize = 0.05d
 
-      def scatterPlot(data: Scatter) = {
+      def scatterPlot(data: Dataset) = {
         val (x, y) = data.points.map(a => a(1) -> a(2)).unzip
         scatter(x, y, size = data.size)
       }

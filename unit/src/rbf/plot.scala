@@ -12,10 +12,10 @@ import viz._
 trait PlotInstances
 {
   implicit lazy val instance_Plot_RBFs_GaussBF =
-    new Plotting[RBFs[GaussBF]] {
-      def estimationPlot(data: RBFs[GaussBF]): Scatter = {
-        val v = data.bf.map(_.variance / 5d).unwrap
-        Scatter(data.centers.unwrap.toList, v)
+    new ParamPlotting[RBFs[GaussBF]] {
+      def estimationPlot(data: RBFs[GaussBF]): Dataset = {
+        val v = data.bf.map(_.variance / 5d).unwrap.toArray
+        Dataset(data.centers.unwrap.toList, v)
       }
     }
 }

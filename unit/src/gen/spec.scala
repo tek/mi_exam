@@ -7,6 +7,8 @@ import org.specs2.matcher.MatchResult
 import org.scalacheck._
 import Prop._
 
+import viz._
+
 trait Check[A <: RandomConf]
 extends Spec
 with ScalaCheck
@@ -19,6 +21,8 @@ with ScalaCheck
 
   def mkModelClasses(d: Nel[ClassData]) =
     new ModelClasses[Data] {
+      lazy val classes = d.map(_.label: ModelClass[Data])
+
       lazy val classMap = d.map(a => a.num -> a.label).unwrap.toMap
       def value(a: ModelClass[Data]) = a match {
         case DataClass(n) =>
@@ -28,14 +32,27 @@ with ScalaCheck
       }
     }
 
-  def mkSample(d: Nel[ClassData], r: Double) = {
+  def mkSample(conf: RandomConf, d: Nel[ClassData], r: Double) = {
     implicit val mc = mkModelClasses(d)
     new DataSample {
       def data = d
-      def featureCount = d.head.conf.features
+      def featureCount = conf.rank
       override def range = 2 * r
     }
   }
+
+  def mkSamplePlotting(data: RandomConf, max: Double)
+  (implicit sample: Sample[Data]): SamplePlotting[Data] =
+    new SamplePlotting[Data] {
+      lazy val range = (-max, max)
+
+      lazy val ranges = plotCount.gen(range)
+
+      lazy val plotCount = data.rank.min(4)
+
+      lazy val projections =
+        (0 until plotCount).map(i => i -> (i + 1) % plotCount).toList
+    }
 
   def dataGen: Gen[A]
 
@@ -48,7 +65,12 @@ with ScalaCheck
     val conf = classData.classes
     val classes = conf.map(createClass)
     val data = classes.flatMap(_.data)
-    implicit val sample: Sample[Data] = mkSample(classes, range)
+    implicit val sample = mkSample(classData, classes, range)
+    implicit val samplePlotting = mkSamplePlotting(classData, range)
     result(classData, classes, data)
   }
 }
+
+abstract class PlottedCheck[B <: RandomConf, A, P, O]
+extends Check[B]
+with viz.PlottedSpecHelpers[A, P, O]

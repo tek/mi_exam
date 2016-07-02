@@ -23,7 +23,8 @@ extends IrisSpecBase[RBFs[GaussBF], Double]
 
 class NormalIrisSpec
 extends IrisSpec
+with MSVSpec[Iris, RBFs[GaussBF], Double]
 
 class PlottedIrisSpec
-extends PlottedIrisSpecBase[RBFs[GaussBF], Double]
+extends viz.PlottedIrisSpecBase[RBFs[GaussBF], Double]
 with IrisSpec

@@ -29,8 +29,6 @@ object Dat
     new Sample[Dat] {
       def cls(a: Dat) = a.cls
 
-      lazy val classes = Nel(LU: ModelClass[Dat], RU, ML)
-
       def feature(a: Dat) = a.feature
 
       def featureCount = 2
@@ -38,8 +36,10 @@ object Dat
 
     implicit def instance_ModelClasses_Dat: ModelClasses[Dat] =
       new ModelClasses[Dat] {
-        def value(a: ModelClass[Dat]) = 
+        def value(a: ModelClass[Dat]) =
           Validated.fromOption(Dat.values.get(a), s"no value for $a")
+
+        lazy val classes = Nel(LU: ModelClass[Dat], RU, ML)
       }
 }
 
