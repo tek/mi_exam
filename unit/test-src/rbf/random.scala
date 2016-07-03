@@ -13,18 +13,13 @@ class RandomSpec
 extends Check[RBFData]
 with MSVSpecBase[Data, RBFs[GaussBF], Double]
 {
-  implicit lazy val params = Parameters(minTestsOk = 1)
-
   import GenBase._
-  import RBFGen._
 
-  lazy val dataGen = rbf(5, 5, Range(folds * 5, folds * 10))
+  lazy val dataGen = RBFData.rbf(5, 5, Range(folds * 5, folds * 10))
 
   override val trials = Some(1)
 
   override def epsilon = 1e-15d
-
-  def range = RBFGen.range
 
   def result(classData: RBFData, classes: Nel[ClassData], data: Nel[Data])
   (implicit sample: Sample[Data]) = {

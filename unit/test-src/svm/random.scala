@@ -15,9 +15,11 @@ with MSVSpecBase[Data, SVM, Double]
   import GenBase._
   import SVMGen._
 
-  lazy val dataGen = svm(10, Range(folds * 5, folds * 10))
+  override def numTests = 1
 
-  def range = SVMGen.range
+  override def trials = 1.some
+
+  lazy val dataGen = svm(10, Range(folds * 5, folds * 10))
 
   def result(classData: SVMData, classes: Nel[ClassData], data: Nel[Data])
   (implicit sample: Sample[Data]) = {
@@ -34,13 +36,15 @@ extends PlottedCheck[SVMData, Data, SVM, Double]
   import GenBase._
   import SVMGen._
 
-  lazy val dataGen = svm(10, Range(folds * 5, folds * 10))
+  override def numTests = 1
 
-  def range = SVMGen.range
+  override def trials = 1.some
+
+  lazy val dataGen = svm(10, Range(folds * 5, folds * 10))
 
   def result(classData: SVMData, classes: Nel[ClassData], data: Nel[Data])
   (implicit sample: Sample[Data]) = {
-    implicit val sp = mkSamplePlotting(classData, range)
+    implicit val sp = mkSamplePlotting(classData)
     val lconf = SVMLearnConf.default(lambda = 0.5d)
     val msv: MSV = SVM.msv(data.shuffle, lconf, sconf)
     val margin = 2d * classData.rank * (trials | data.length)

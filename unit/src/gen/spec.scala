@@ -3,13 +3,14 @@ package mi
 
 import org.specs2.ScalaCheck
 import org.specs2.matcher.MatchResult
+import org.specs2.scalacheck._
 
 import org.scalacheck._
 import Prop._
 
 import viz._
 
-trait Check[A <: RandomConf]
+abstract class Check[A <: RandomConf: GenData]
 extends Spec
 with ScalaCheck
 {
@@ -18,6 +19,12 @@ with ScalaCheck
   def is = s2"""
   randomly generated gaussian clusters ${forAllNoShrink(dataGen)(check)}
   """
+
+  lazy val genData = GenData[A]
+
+  def numTests = 15
+
+  implicit lazy val params = Parameters(minTestsOk = numTests)
 
   def mkModelClasses(d: Nel[ClassData]) =
     new ModelClasses[Data] {
@@ -32,19 +39,19 @@ with ScalaCheck
       }
     }
 
-  def mkSample(conf: RandomConf, d: Nel[ClassData], r: Double) = {
+  def mkSample(conf: RandomConf, d: Nel[ClassData]) = {
     implicit val mc = mkModelClasses(d)
     new DataSample {
       def data = d
       def featureCount = conf.rank
-      override def range = 2 * r
+      override def range = 2 * genData.sampleRange
     }
   }
 
-  def mkSamplePlotting(data: RandomConf, max: Double)
+  def mkSamplePlotting(data: RandomConf)
   (implicit sample: Sample[Data]): SamplePlotting[Data] =
     new SamplePlotting[Data] {
-      lazy val range = (-max, max)
+      lazy val range = (-genData.domainRange, genData.domainRange)
 
       lazy val ranges = plotCount.gen(range)
 
@@ -59,18 +66,16 @@ with ScalaCheck
   def result(classData: A, classes: Nel[ClassData], data: Nel[Data])
   (implicit sample: Sample[Data]): MatchResult[_]
 
-  def range: Double
-
   def check(classData: A) = {
     val conf = classData.classes
     val classes = conf.map(createClass)
     val data = classes.flatMap(_.data)
-    implicit val sample = mkSample(classData, classes, range)
-    implicit val samplePlotting = mkSamplePlotting(classData, range)
+    implicit val sample = mkSample(classData, classes)
+    implicit val samplePlotting = mkSamplePlotting(classData)
     result(classData, classes, data)
   }
 }
 
-abstract class PlottedCheck[B <: RandomConf, A, P, O]
+abstract class PlottedCheck[B <: RandomConf: GenData, A, P, O]
 extends Check[B]
 with viz.PlottedSpecHelpers[A, P, O]

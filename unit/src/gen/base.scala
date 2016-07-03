@@ -16,7 +16,7 @@ object GenBase
 
   def nelOfN[A] = oneAndOfN[List, A] _
 
-  def genCol(rank: Int, range: Double) = for {
+  def genSample(rank: Int, range: Double) = for {
     d <- containerOfN[Array, Double](rank, choose(-range, range))
   } yield Col(d)
 
@@ -26,15 +26,24 @@ object GenBase
   }
 }
 
-trait GenBase
+abstract class GenBase[A: GenData]
 {
-  def range: Double
+  lazy val genData = GenData[A]
 
-  def genCol(rank: Int) = GenBase.genCol(rank, range)
+  def genSample(rank: Int) = GenBase.genSample(rank, genData.sampleRange)
 }
 
 trait RandomConf
 {
   def rank: Int
   def classes: Nel[ClassConf]
+}
+
+@tc trait GenData[A]
+{
+  def sampleRange: Double
+
+  def domainRange: Double
+
+  def genSample(rank: Int) = GenBase.genSample(rank, sampleRange)
 }

@@ -22,30 +22,30 @@ extends RandomConf
 }
 
 object SVMGen
-extends GenBase
+extends GenBase[SVMData]
 {
   import Gen._
 
-  def range: Double = 1d
+  import genData._
 
   def genClass(num: Int, rank: Int, members: Range, pivot: Col,
     direction: Col) =
     for {
       memberCount <- choose(members.min, members.max)
-      dist <- choose(2d, 5d)
+      dist <- choose(2d, 3d)
       mean = pivot + (dist * direction)
-      covariance <- choose[Double](0.0001d, range)
+      covariance <- choose[Double](0.0001d, sampleRange / 2d)
     } yield ClassConf(num, rank, mean, covariance, memberCount)
 
   def pointInPlane(normal: Col, bias: Double, rank: Int) =
     for {
-      l <- genCol(rank)
+      l <- genSample(rank)
     } yield l * (bias / (normal dot l))
 
   def genPlane(rank: Int) = for {
-    w <- genCol(rank)
+    w <- genSample(rank)
     normal = normalize(w)
-    bias <- choose[Double](0d, range)
+    bias <- choose[Double](0d, sampleRange)
     pivot <- pointInPlane(normal, bias, rank)
   } yield Plane(normal, bias, pivot)
 
@@ -56,4 +56,20 @@ extends GenBase
       one <- genClass(1, rank, members, plane.pivot, plane.normal)
       two <- genClass(-1, rank, members, plane.pivot, -plane.normal)
     } yield SVMData(rank, plane, one, two)
+}
+
+object SVMData
+extends SVMDataInstances
+{
+  lazy val genData = GenData[SVMData]
+}
+
+trait SVMDataInstances
+{
+  implicit lazy val instance_GenData_SVMData: GenData[SVMData] =
+    new GenData[SVMData] {
+      def sampleRange: Double = 10d
+
+      def domainRange = 10d
+    }
 }

@@ -8,18 +8,18 @@ import org.scalacheck.util.Buildable
 case class RBFData(rank: Int, classes: Nel[ClassConf])
 extends RandomConf
 
-object RBFGen
-extends GenBase
+object RBFData
+extends RBFDataInstances
 {
   import Gen._
-  import GenBase._
+  import GenBase.nelOfN
 
-  def range: Double = 10d
+  lazy val genData = GenData[RBFData]
 
   def genClass(num: Int, rank: Int, members: Range) = for {
     memberCount <- choose(members.min, members.max)
-    mean <- genCol(rank)
-    covariance <- choose[Double](0.0001d, range)
+    mean <- genData.genSample(rank)
+    covariance <- choose[Double](0.0001d, genData.domainRange)
   } yield ClassConf(num, rank, mean, covariance, memberCount)
 
   def rbf(maxRank: Int, maxClasses: Int, members: Range) =
@@ -28,4 +28,14 @@ extends GenBase
       classCount <- choose(3, maxClasses - 1)
       classes <- nelOfN(classCount, genClass(_, rank, members))
     } yield RBFData(rank, classes)
+}
+
+trait RBFDataInstances
+{
+  implicit lazy val instance_GenData_RBFData: GenData[RBFData] =
+    new GenData[RBFData] {
+      def sampleRange: Double = 10d
+
+      def domainRange = 10d
+    }
 }
