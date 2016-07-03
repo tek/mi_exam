@@ -65,15 +65,15 @@ extends SimpleEstimator[SVM]
 
   lazy val feat = data.toList.map(_.feature)
 
-  lazy val xdot = Mat.create(rank, rank, feat.map2(feat)(_ dot _).toArray)
+  lazy val gramX = Mat.create(rank, rank, feat.map2(feat)(_ dot _).toArray)
 
-  lazy val yg = y * y.t
+  lazy val spanY = y * y.t
 
-  lazy val gram = xdot :* yg
+  lazy val form = gramX :* spanY
 
   lazy val q = Col.ones[Double](rank)
 
-  lazy val c = qm.minimize(gram, -q)
+  lazy val c = qm.minimize(form, -q)
 
   lazy val cy = c :* y
 

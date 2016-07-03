@@ -64,9 +64,9 @@ extends InternalBase
   def is = s2"""
   Support Vector Machine
 
-  data dot products $dataDot
+  data gram matrix $gramX
   label matrix $labels
-  gram matrix $gram
+  quadratic form $form
   normal vector $normal
   offset $offset
   support vectors in plane equation $support
@@ -87,11 +87,11 @@ extends InternalBase
 
   lazy val conf = SVMLearnConf.default(lambda)
 
-  def dataDot = train.xdot must_== Mat((2d, 4d), (4d, 10d))
+  def gramX = train.gramX must_== Mat((2d, 4d), (4d, 10d))
 
-  def labels = train.yg must_== Mat((1d, -1d), (-1d, 1d))
+  def labels = train.spanY must_== Mat((1d, -1d), (-1d, 1d))
 
-  def gram = train.gram must_== Mat((2d, -4d), (-4d, 10d))
+  def form = train.form must_== Mat((2d, -4d), (-4d, 10d))
 
   def normal = train.w must beCloseCol(Col(1d, 0d))
 
