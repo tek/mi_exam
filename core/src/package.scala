@@ -28,6 +28,8 @@ with Fu2.ToFu2Ops
 with Sample.ToSampleOps
 with monocle.function.NonEmptyVectorIndexLens
 with ToMatOps
+with ToBreezeFoldableOps
+with ToBreezeSeqOps
 with ModelState.ToModelStateOps
 with PullFunctions
 with StreamInstances
