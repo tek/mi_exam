@@ -27,7 +27,7 @@ extends IrisSpecBase[SVM, Double]
 {
   def title = "Support Vector Machine"
 
-  val lambda = 2d
+  val lambda = 0.5d
 
   // override def trials = Some(1)
 

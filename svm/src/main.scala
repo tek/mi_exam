@@ -7,37 +7,60 @@ import simulacrum._
 import scalaz.std.vector.{vectorInstance => zVectorInstance}
 import scalaz.syntax.zip._
 
-import breeze.linalg.{sum, squaredDistance, pinv, *, Axis}
+import cats.data.Validated._
+
+import breeze.linalg._
 import breeze.linalg.functions.euclideanDistance
-import breeze.numerics.{abs, signum}
+import breeze.linalg.operators.OpMulInner
+import breeze.numerics._
 import breeze.generic.UFunc
 import breeze.optimize.proximal.{QuadraticMinimizer, ProjectBox, ProjectPos}
 
 import LearnConf._
 
-case class SVM(normal: Col, offset: Double, support: List[Col])
+trait KernelFunc
 {
-  def classify(x: Col) = signum(normal dot x - offset)
+  def apply(v1: Col, v2: Col): Double
 }
 
-case class SVMLearnConf(lambda: Double, cost: Func2)
+object LinearKernel
+extends KernelFunc
+{
+  def apply(v1: Col, v2: Col): Double = v1 dot v2
+}
+
+case class PolyKernel(degree: Double, bias: Double)
+extends KernelFunc
+{
+  def apply(v1: Col, v2: Col): Double = pow(v1 dot v2 + bias, degree)
+}
+
+case class SVM(normal: Col, offset: Double, support: List[Col], cy: Col)
+
+case class SVMLearnConf(lambda: Double, cost: Func2, kernel: KernelFunc)
 
 object SVMLearnConf
 {
   def default(
     lambda: Double = 2.0,
-    cost: Func2 = QuadraticError
+    cost: Func2 = QuadraticError,
+    kernel: KernelFunc = LinearKernel
   ) = {
-    SVMLearnConf(lambda, cost)
+    SVMLearnConf(lambda, cost, kernel)
   }
 }
 
 case class SVMPredictor(config: SVMLearnConf)
 extends Predictor[SVM, Double]
 {
+  def classify(x: Col, model: SVM) = {
+    import model._
+    signum(normal dot x - offset)
+  }
+
   def apply[S: Sample](sample: S, model: SVM)
   : Prediction[S, SVM, Double] = {
-    Prediction(sample, model, model.classify(sample.feature))
+    Prediction(sample, model, classify(sample.feature, model))
   }
 }
 
@@ -65,7 +88,8 @@ extends SimpleEstimator[SVM]
 
   lazy val feat = data.toList.map(_.feature)
 
-  lazy val gramX = Mat.create(rank, rank, feat.map2(feat)(_ dot _).toArray)
+  def gramX =
+    Mat.create(rank, rank, feat.map2(feat)(config.kernel.apply).toArray)
 
   lazy val spanY = y * y.t
 
@@ -83,15 +107,24 @@ extends SimpleEstimator[SVM]
 
   lazy val supports = supportIndexes.flatMap(data.lift)
 
+  lazy val supportCols = supports.map(_.feature)
+
   lazy val support =
     Validated.fromOption(supports.headOption, "no support vectors found")
-      .toValidatedNel
 
-  lazy val offset = support map { s =>
-    s.valueOrNaN - (w dot s.feature)
+  def eval(x: Col) = {
+    config.kernel match {
+      case LinearKernel => w dot x
+      case k => cy dot supportCols.map(k(_, x)).toCol
+    }
   }
 
-  def go = offset map (b => SVM(w, b, supports.toList map (_.feature)))
+  lazy val offset =
+    support flatMap (s => s.value.map(_ - eval(s.feature)))
+
+  def go =
+    offset.map(b => SVM(w, b, supports.toList map (_.feature), cy))
+      .toValidatedNel
 }
 
 case class SVMValidator[S: Sample]

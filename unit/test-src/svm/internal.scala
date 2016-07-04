@@ -41,7 +41,11 @@ extends Spec
 {
   val data: Nel[Dat]
 
-  val conf: SVMLearnConf
+  def lambda = 0.5d
+
+  def kernel: KernelFunc = LinearKernel
+
+  lazy val conf = SVMLearnConf.default(lambda, kernel = kernel)
 
   lazy val stop = StepCountStopCriterion[SVM](1)
 
@@ -51,7 +55,7 @@ extends Spec
 
   lazy val validator = SVMValidator[Dat](data, conf)
 
-  // lazy val pred = predict(data.head, ???)
+  lazy val pred = train.go map (predict(data.head, _))
 
   lazy val b = train.offset.getOrElse(Inf)
 
@@ -64,18 +68,16 @@ extends InternalBase
   def is = s2"""
   Support Vector Machine
 
-  data gram matrix $gramX
+  data gram matrix ${train.gramX must_== gramX}
   label matrix $labels
-  quadratic form $form
-  normal vector $normal
+  quadratic form ${train.form must_== form}
+  normal vector ${train.w must beCloseCol(normal)}
   offset $offset
   support vectors in plane equation $support
-  point on plane $point
+  point on plane ${point must beClose(-b)}
   """
 
   import Dat._
-
-  def lambda = 0.5d
 
   val x1 = Col(1d, 1d)
 
@@ -85,23 +87,47 @@ extends InternalBase
 
   lazy val features = data map (_.feature)
 
-  lazy val conf = SVMLearnConf.default(lambda)
-
-  def gramX = train.gramX must_== Mat((2d, 4d), (4d, 10d))
+  def gramX = Mat((2d, 4d), (4d, 10d))
 
   def labels = train.spanY must_== Mat((1d, -1d), (-1d, 1d))
 
-  def form = train.form must_== Mat((2d, -4d), (-4d, 10d))
+  def form = Mat((2d, -4d), (-4d, 10d))
 
-  def normal = train.w must beCloseCol(Col(1d, 0d))
+  def normal = Col(1d, 0d)
+
+  def supportValue = 1d
 
   def support =
     train.supports.length must_== 2 and (
-      train.supports.map(pt).toList must contain(beClose(1)).forall)
+      train.supports.map(pt).toList must contain(beClose(supportValue)).forall)
 
   def offset = train.offset must beValid(beClose(-2))
 
-  def point = train.w dot Col(2d, 1d) must beClose(-b)
+  def point = train.w dot Col(2d, 1d)
+}
+
+class KernelSVMSpec
+extends TrivialSVMSpec
+{
+  val coeff = 2d
+
+  object TestKernel
+  extends KernelFunc
+  {
+    def apply(v1: Col, v2: Col): Double = (v1 dot v2) * coeff
+  }
+
+  override def kernel = TestKernel
+
+  override def gramX = super.gramX * coeff
+
+  override def form = super.form * coeff
+
+  override def normal = super.normal / coeff
+
+  override def supportValue = super.supportValue / coeff
+
+  override def point = super.point * 2
 }
 
 class SimpleSVMSpec
@@ -116,7 +142,7 @@ extends InternalBase
 
   import Dat._
 
-  def lambda = 1e-2
+  override def lambda = 1e-2
 
   lazy val data = Nel(
     Dat(Col(0d, 1d), One),
@@ -129,8 +155,6 @@ extends InternalBase
   )
 
   lazy val features = data map (_.feature)
-
-  lazy val conf = SVMLearnConf.default(lambda)
 
   def normal = normalize(train.w) must beCloseToCol(Col(1d, 0d), 1e-2)
 
