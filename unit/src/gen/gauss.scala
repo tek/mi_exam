@@ -12,15 +12,16 @@ extends ModelClass[Data]
   def name = s"cls $num"
 }
 
-case class ClassConf(num: Int, features: Int, mean: Col, covariance: Double,
+case class ClassCluster(num: Int, features: Int, mean: Col, covariance: Double,
   members: Int)
   {
     lazy val dist =
       MultivariateGaussian(mean, diag(Col.fill(features)(covariance)))
   }
 
-case class ClassData(conf: ClassConf, data: Nel[Data])
+case class ClassData(clusters: Nel[ClassCluster], data: Nel[Data])
 {
+  def conf = clusters.head
   def num = conf.num
   lazy val value = num.toDouble
   lazy val label = DataClass(num)

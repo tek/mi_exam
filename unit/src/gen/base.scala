@@ -20,9 +20,9 @@ object GenBase
     d <- containerOfN[Array, Double](rank, choose(-range, range))
   } yield Col(d)
 
-  def createClass(conf: ClassConf) = {
+  def createClass(conf: ClassCluster) = {
     val data = conf.members.genNel(Data(conf.dist.draw(), conf.num))
-    ClassData(conf, data)
+    ClassData(Nel(conf), data)
   }
 }
 
@@ -36,7 +36,7 @@ abstract class GenBase[A: GenData]
 trait RandomConf
 {
   def rank: Int
-  def classes: Nel[ClassConf]
+  def classes: Nel[ClassCluster]
 }
 
 @tc trait GenData[A]

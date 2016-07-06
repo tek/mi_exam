@@ -3,39 +3,48 @@ package mi
 package svm
 package unit
 
-import breeze.linalg._
-import breeze.numerics._
-import breeze.linalg.functions.euclideanDistance
-import breeze.stats.distributions.MultivariateGaussian
-import tryp.mi.viz.Shape
+import org.specs2.matcher.MatchResult
 
-class RandomSpec
+import viz.Shape
+
+trait SVMRandomSpecBase
 extends Check[SVMData]
 with MSVSpecBase[Data, SVM, Double]
 {
-  import GenBase._
-  import SVMGen._
+  val kernel: KernelFunc = LinearKernel
 
+  def trainSvm(classData: SVMData, msv: MSV, margin: Double)
+  (implicit sample: Sample[Data]): MatchResult[_]
+
+  def result(classData: SVMData, classes: Nel[ClassData], data: Nel[Data])
+  (implicit sample: Sample[Data]) = {
+    val lconf = SVMLearnConf.default(lambda = 0.5d, kernel = kernel)
+    val msv = SVM.msv(data.shuffle, lconf, sconf)
+    val margin = 0.2d * classData.rank * (trials | data.length)
+    trainSvm(classData, msv, margin)
+  }
+}
+
+class LinearRandomSpec
+extends SVMRandomSpecBase
+{
   // override def numTests = 1
 
   // override def trials = 3.some
 
-  lazy val dataGen = svm(10, Range(folds * 5, folds * 10))
+  lazy val dataGen = SVMGen.linearSvm(10, Range(folds * 5, folds * 10))
 
-  def result(classData: SVMData, classes: Nel[ClassData], data: Nel[Data])
-  (implicit sample: Sample[Data]) = {
-    val lconf = SVMLearnConf.default(lambda = 0.5d)
-    val msv = SVM.msv(data.shuffle, lconf, sconf)
-    val margin = 2d * classData.rank * (trials | data.length)
+  // override val kernel: KernelFunc = PolyKernel(2d, 1d)
+
+  def trainSvm(classData: SVMData, msv: MSV, margin: Double)
+  (implicit sample: Sample[Data]) =
     train(msv, margin)
-  }
 }
 
 class PlottedRandomSpec
 extends PlottedCheck[SVMData, Data, SVM, Double]
+with SVMRandomSpecBase
 {
-  import GenBase._
-  import SVMGen._
 
   override def estimationShape: Shape = Shape.Line
 
@@ -45,15 +54,12 @@ extends PlottedCheck[SVMData, Data, SVM, Double]
 
   def lambda = 0.0005d
 
-  // lazy val dataGen = svm(10, Range(folds * 5, folds * 10))
-  lazy val dataGen = svm(2, Range(4, 5))
+  // lazy val dataGen = SVMGen.linearSvm(10, Range(folds * 5, folds * 10))
+  lazy val dataGen = SVMGen.linearSvm(2, Range(4, 5))
 
-  def result(classData: SVMData, classes: Nel[ClassData], data: Nel[Data])
+  def trainSvm(classData: SVMData, msv: MSV, margin: Double)
   (implicit sample: Sample[Data]) = {
     implicit val sp = mkSamplePlotting(classData)
-    val lconf = SVMLearnConf.default(lambda = lambda)
-    val msv: MSV = SVM.msv(data.shuffle, lconf, sconf)
-    val margin = 2d * classData.rank * (trials | data.length)
     trainPms(mkPms(msv), margin)
   }
 }

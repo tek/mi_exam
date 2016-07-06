@@ -15,10 +15,11 @@ import Arbitrary.arbitrary
 
 case class Plane(normal: Col, bias: Double, pivot: Col)
 
-case class SVMData(rank: Int, plane: Plane, one: ClassConf, two: ClassConf)
+case class SVMData(rank: Int, plane: Plane, one: Nel[ClassCluster],
+  two: Nel[ClassCluster])
 extends RandomConf
 {
-  def classes = Nel(one, two)
+  def classes = one combine two
 }
 
 object SVMGen
@@ -28,14 +29,19 @@ extends GenBase[SVMData]
 
   import genData._
 
-  def genClass(num: Int, rank: Int, members: Range, pivot: Col,
-    direction: Col) =
+  def genCluster(num: Int, rank: Int, members: Range, mean: Col) =
     for {
       memberCount <- choose(members.min, members.max)
-      dist <- choose(3d, 5d)
-      mean = pivot + (dist * direction)
       covariance <- choose[Double](0.0001d, sampleRange / 2d)
-    } yield ClassConf(num, rank, mean, covariance, memberCount)
+    } yield ClassCluster(num, rank, mean, covariance, memberCount)
+
+  def genLinearClass(num: Int, rank: Int, members: Range, pivot: Col,
+    direction: Col) =
+      for {
+        dist <- choose(3d, 5d)
+        mean = pivot + (dist * direction)
+        cluster <- genCluster(num, rank, members, mean)
+      } yield cluster
 
   def pointInPlane(normal: Col, bias: Double, rank: Int) =
     for {
@@ -49,13 +55,13 @@ extends GenBase[SVMData]
     pivot <- pointInPlane(normal, bias, rank)
   } yield Plane(normal, bias, pivot)
 
-  def svm(maxFeatures: Int, members: Range) =
+  def linearSvm(maxFeatures: Int, members: Range) =
     for {
       rank <- choose(2, maxFeatures)
       plane <- genPlane(rank)
-      one <- genClass(1, rank, members, plane.pivot, plane.normal)
-      two <- genClass(-1, rank, members, plane.pivot, -plane.normal)
-    } yield SVMData(rank, plane, one, two)
+      one <- genLinearClass(1, rank, members, plane.pivot, plane.normal)
+      two <- genLinearClass(-1, rank, members, plane.pivot, -plane.normal)
+    } yield SVMData(rank, plane, Nel(one), Nel(two))
 }
 
 object SVMData

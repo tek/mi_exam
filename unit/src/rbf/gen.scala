@@ -5,7 +5,7 @@ package rbf
 import org.scalacheck._
 import org.scalacheck.util.Buildable
 
-case class RBFData(rank: Int, classes: Nel[ClassConf])
+case class RBFData(rank: Int, classes: Nel[ClassCluster])
 extends RandomConf
 
 object RBFData
@@ -20,7 +20,7 @@ extends RBFDataInstances
     memberCount <- choose(members.min, members.max)
     mean <- genData.genSample(rank)
     covariance <- choose[Double](0.0001d, genData.domainRange)
-  } yield ClassConf(num, rank, mean, covariance, memberCount)
+  } yield ClassCluster(num, rank, mean, covariance, memberCount)
 
   def rbf(maxRank: Int, maxClasses: Int, members: Range) =
     for {

@@ -63,16 +63,24 @@ with ScalaCheck
 
   def dataGen: Gen[A]
 
-  def result(classData: A, classes: Nel[ClassData], data: Nel[Data])
+  def result(conf: A, classes: Nel[ClassData], data: Nel[Data])
   (implicit sample: Sample[Data]): MatchResult[_]
 
-  def check(classData: A) = {
-    val conf = classData.classes
-    val classes = conf.map(createClass)
+  def createClasses(clusters: Nel[ClassCluster]): Nel[ClassData] =
+    clusters
+      .groupBy(_.num)
+      .map(_.map(createClass))
+      .map(_.reduceLeft((a, b) =>
+          ClassData(a.clusters.combine(b.clusters), a.data.combine(b.data)))
+      )
+
+  def check(conf: A) = {
+    val classConf = conf.classes
+    val classes = createClasses(classConf)
     val data = classes.flatMap(_.data)
-    implicit val sample = mkSample(classData, classes)
-    implicit val samplePlotting = mkSamplePlotting(classData)
-    result(classData, classes, data)
+    implicit val sample = mkSample(conf, classes)
+    implicit val samplePlotting = mkSamplePlotting(conf)
+    result(conf, classes, data)
   }
 }
 
