@@ -6,6 +6,8 @@ import java.util.concurrent.Executors
 
 import fs2._
 import fs2.util._
+import fs2.async.mutable.Queue
+import fs2.async.immutable.Signal
 
 import cats.data.Validated._
 
@@ -71,7 +73,7 @@ object PlottedModelSelection
               sleep(1.second) >> rec(plt)
             }
           case Done() =>
-            done
+            sleep(1.second) >> done
           case Result(_) =>
             eval(Task(())) >> rec(plotter)
         }
@@ -79,21 +81,17 @@ object PlottedModelSelection
   }
 }
 
-case class PlottedModelSelection[A: Sample, B: PlotBackend, P: ParamPlotting, O]
-(msv: ModelSelectionValidator[A, P, O],
-  stepInterval: FiniteDuration = 100.millis)
+case class PMSCore
+[A: Sample, B: PlotBackend, P: ParamPlotting, O]
+(msv: ModelSelectionValidator[A, P, O], q: Queue[Task, Learn[A, P, O]],
+  finished: Signal[Task, Boolean], stepInterval: FiniteDuration)
 {
   import PlottedModelSelection._
 
   type M = ModelSelection[A, P, O]
   type MSV = ModelSelectionValidation[A, P, O]
-  type Res = ValidatedNel[String, MSV]
-
+  type Res = String ValidatedNel MSV
   type L = Learn[A, P, O]
-
-  lazy val q = async.unboundedQueue[Task, Learn[A, P, O]].unsafeRun
-
-  lazy val finished = async.signalOf[Task, Boolean](false).unsafeRun
 
   lazy val results: Stream[Task, String ValidatedNel M] = {
     val em = Stream.empty[Task, String ValidatedNel M]
@@ -112,7 +110,7 @@ case class PlottedModelSelection[A: Sample, B: PlotBackend, P: ParamPlotting, O]
     ModelSelectionValidator.validation(msv, results)
 
   def plotStream: fs2.Stream[Task, Unit] = {
-    val s = Stream.eval(Task(Learn.Go[A, P, O]())) ++ q.dequeue
+    val s = Stream.emit(Learn.Go[A, P, O]()) ++ q.dequeue
     finished.interrupt(s.pull(plotLoop(Plotter.empty[A, B, P], stepInterval)))
   }
 
@@ -135,8 +133,32 @@ case class PlottedModelSelection[A: Sample, B: PlotBackend, P: ParamPlotting, O]
   def mainT: Stream[Task, Option[Either[Unit, Res]]] =
     validation.map(SRight[Unit, Res](_).some)
 
-  def main: Stream[Task, Res] =
+  def main =
     mainT
       .merge(plotWithTerminator)
       .pull(waitForCompletion(SLeft[Unit, Res](())))
+}
+
+case class PlottedModelSelection
+[A: Sample, B: PlotBackend, P: ParamPlotting, O]
+(msv: ModelSelectionValidator[A, P, O],
+  stepInterval: FiniteDuration = 100.millis)
+{
+  import PlottedModelSelection._
+
+  type MSV = ModelSelectionValidation[A, P, O]
+  type Res = String ValidatedNel MSV
+
+  def queue = async.unboundedQueue[Task, Learn[A, P, O]]
+
+  def finished = async.signalOf[Task, Boolean](false)
+
+  def core =
+    for {
+      q <- Stream.eval(queue)
+      f <- Stream.eval(finished)
+    } yield PMSCore(msv, q, f, stepInterval)
+
+  def main: Stream[Task, Res] =
+    core flatMap (_.main)
 }
