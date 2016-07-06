@@ -24,7 +24,7 @@ case class Plotter[A: Sample, B: PlotBackend, P: ParamPlotting]
   }
 
   def fold(train: Nel[A], test: Nel[A]): Task[Plotter[A, B, P]] = {
-    plotData.fold(train.unwrap.map(_.feature))
+    plotData.fold(train.unwrap)
       .map(a => Plotter(plotData, Some((train, test))))
   }
 

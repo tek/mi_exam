@@ -9,6 +9,9 @@ import org.jfree.data.xy.{DefaultXYZDataset, XYDataset}
 import org.jfree.chart.renderer.xy._
 import org.jfree.chart.axis._
 
+import java.awt.Color
+import java.awt.geom.Ellipse2D
+
 import scalax.chart._, api._
 
 import ParamPlotting.ops._
@@ -30,28 +33,53 @@ extends Logging
 
       def samplePlotting = SamplePlotting[A]
 
-      def estimationRenderer =
-        fconf.shape match {
+      lazy val estimationRenderer = {
+        val r = fconf.shape match {
           case Shape.Line => new XYLineAndShapeRenderer(true, false)
           case Shape.Scatter => new XYBubbleRenderer
         }
+        r.setSeriesOutlinePaint(0, Color.blue)
+        r.setSeriesFillPaint(0, Color.blue)
+        r
+      }
+
+      lazy val sampleRenderer = {
+        val r = new XYLineAndShapeRenderer(false, true)
+        r.setBaseOutlinePaint(Color.black)
+        r.setUseOutlinePaint(true)
+        r.setUseFillPaint(true)
+        Sample[A].classes.toList.zipWithIndex foreach { case (c, i) =>
+          r.setSeriesShape(i, sampleShape)
+          r.setSeriesFillPaint(i, color(i))
+        }
+        r
+      }
+
+      def colors = List(Color.yellow, Color.green, Color.red)
+
+      def color(i: Int) =
+        colors.lift(i % colors.length).getOrElse(Color.orange)
+
+      val sampleShape = new Ellipse2D.Double(-4.0, -4.0, 8.0, 8.0)
 
       def data(xrange: (Double, Double), yrange: (Double, Double)) = {
         val samples = new DefaultXYZDataset
         val estimation = new DefaultXYZDataset
-        val r1 = new XYBubbleRenderer
         val ax = new NumberAxis
         val ay = new NumberAxis
+        val plot = new XYPlot
+        plot.setDomainAxis(ax)
+        plot.setRangeAxis(ay)
+        val chart = XYChart(plot, "mi", false, ChartTheme.Default)
         ax.setAutoRange(false)
         ax.setRange(xrange._1, xrange._2)
         ay.setAutoRange(false)
         ay.setRange(yrange._1, yrange._2)
-        val plot = new XYPlot(samples, ax, ay, r1)
         plot.setDataset(0, samples)
         plot.setDataset(1, estimation)
-        plot.setRenderer(0, r1)
+        plot.setRenderer(0, sampleRenderer)
         plot.setRenderer(1, estimationRenderer)
-        val chart = XYChart(plot, "mi", false, ChartTheme.Default)
+        plot.setBackgroundPaint(Color.white)
         JFreeData(chart, samples, estimation)
       }
 
@@ -67,10 +95,14 @@ extends Logging
         Task(a.figure.show())
       }
 
-      def fold(a: JFree[A])(data: List[Col]) = {
-        log.debug(s"Plotting fold: $data")
-        val size = data.length.gen(dataSize).toArray
-        update(a)(_.samples, "samples", data, size)
+      def fold[B: Sample](a: JFree[A])(samples: List[B]): Task[Unit] = {
+        log.debug(s"Plotting fold: $samples")
+        Sample[B].classes.unwrap.zipWithIndex
+          .map { case (c, i) =>
+            val data = samples.filter(_.cls == c).map(_.feature)
+            update(a)(_.samples, c.name, data, data.length.gen(0d).toArray)
+          }
+          .sequence_
       }
 
       def step[P: ParamPlotting](a: JFree[A])(params: P) = {
