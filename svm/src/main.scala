@@ -35,9 +35,58 @@ extends KernelFunc
   def apply(v1: Col, v2: Col): Double = pow(v1 dot v2 + bias, degree)
 }
 
+case class RBFKernel(sigma: Double)
+extends KernelFunc
+{
+  val gamma = - 1 / (2 * sigma)
+
+  def apply(v1: Col, v2: Col): Double = {
+    val diff = v1 - v2
+    exp(gamma * (diff dot diff))
+  }
+}
+
 case class SVM(normal: Col, offset: Double, support: List[Col], cy: Col)
 
+trait SVMEval
+{
+  def svm: SVM
+
+  def apply(x: Col): Double
+
+  def classify(x: Col): Double = signum(apply(x) - svm.offset)
+}
+
+case class LinearEval(svm: SVM)
+extends SVMEval
+{
+  def apply(x: Col) = LinearEval.eval(svm.normal, x)
+}
+
+object LinearEval
+{
+  def eval(w: Col, x: Col) = w dot x
+}
+
+case class KernelEval(svm: SVM, k: KernelFunc)
+extends SVMEval
+{
+  def apply(x: Col) = KernelEval.eval(k, svm.support, svm.cy, x)
+}
+
+object KernelEval
+{
+  def eval(k: KernelFunc, support: List[Col], cy: Col, x: Col) =
+    cy dot support.map(k(_, x)).toCol
+}
+
 case class SVMLearnConf(lambda: Double, cost: Func2, kernel: KernelFunc)
+{
+  def eval(svm: SVM): SVMEval = kernel match {
+    case LinearKernel => LinearEval(svm)
+    case _ => KernelEval(svm, kernel)
+  }
+}
 
 object SVMLearnConf
 {
@@ -53,14 +102,10 @@ object SVMLearnConf
 case class SVMPredictor(config: SVMLearnConf)
 extends Predictor[SVM, Double]
 {
-  def classify(x: Col, model: SVM) = {
-    import model._
-    signum((normal dot x) - offset)
-  }
-
   def apply[S: Sample](sample: S, model: SVM)
   : Prediction[S, SVM, Double] = {
-    Prediction(sample, model, classify(sample.feature, model))
+    val pred = config.eval(model).classify(sample.feature)
+    Prediction(sample, model, pred, Sample[S].predictedClass(pred))
   }
 }
 
@@ -70,7 +115,7 @@ extends SimpleEstimator[SVM]
 {
   lazy val x = Mat(data.map(_.feature).toList: _*)
 
-  lazy val y = Col(data.map(_.valueOrNaN).toList: _*)
+  lazy val y = data.map(_.valueOrNaN).unwrap.toCol
 
   lazy val rank = data.length
 
@@ -103,27 +148,30 @@ extends SimpleEstimator[SVM]
 
   lazy val w = sum(x(::, *) :* cy, Axis._0).t
 
-  lazy val supportIndexes = c.toArray.zipWithIndex.filter(_._1 != 0).map(_._2)
+  lazy val supportIndexes =
+    c.toArray.toList.zipWithIndex.filter(_._1 != 0).map(_._2)
 
-  lazy val supports = supportIndexes.flatMap(data.lift)
+  lazy val supports = supportIndexes flatMap data.lift
 
   lazy val supportCols = supports.map(_.feature)
 
   lazy val support =
     Validated.fromOption(supports.headOption, "no support vectors found")
 
+  lazy val supportCy = supportIndexes.map(cy(_)).toCol
+
   def eval(x: Col) = {
     config.kernel match {
-      case LinearKernel => w dot x
-      case k => cy dot supportCols.map(k(_, x)).toCol
+      case LinearKernel => LinearEval.eval(w, x)
+      case k => supportCy dot supportCols.map(k(_, x)).toCol
     }
   }
 
   lazy val offset =
-    support flatMap (s => s.value.map(_ - eval(s.feature)))
+    support flatMap (s => s.value.map(eval(s.feature) - _))
 
   def go =
-    offset.map(b => SVM(w, b, supports.toList map (_.feature), cy))
+    offset.map(b => SVM(w, b, supports.toList map (_.feature), supportCy))
       .toValidatedNel
 }
 
