@@ -41,11 +41,22 @@ extends SVMRandomSpecBase
     train(msv, margin)
 }
 
+class PolyRandomSpec
+extends LinearRandomSpec
+{
+  override def numTests = 1
+
+  // override val kernel: KernelFunc = PolyKernel(2d, 1d)
+  override val kernel: KernelFunc = RBFKernel(1d)
+
+  override lazy val dataGen =
+    SVMGen.threeClusterPolySvm(10, Range(folds * 5, folds * 10))
+}
+
 class PlottedRandomSpec
 extends PlottedCheck[SVMData, Data, SVM, Double]
 with SVMRandomSpecBase
 {
-
   override def estimationShape: Shape = Shape.Line
 
   override def numTests = 1

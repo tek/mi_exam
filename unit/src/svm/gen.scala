@@ -62,6 +62,16 @@ extends GenBase[SVMData]
       one <- genLinearClass(1, rank, members, plane.pivot, plane.normal)
       two <- genLinearClass(-1, rank, members, plane.pivot, -plane.normal)
     } yield SVMData(rank, plane, Nel(one), Nel(two))
+
+  def threeClusterPolySvm(maxFeatures: Int, members: Range) =
+    for {
+      rank <- choose(2, maxFeatures)
+      plane <- genPlane(rank)
+      offset = plane.pivot * sampleRange / 4d
+      oneA <- genCluster(1, rank, members, plane.pivot - offset)
+      oneB <- genCluster(1, rank, members, plane.pivot + offset)
+      two <- genCluster(-1, rank, members, plane.pivot)
+    } yield SVMData(rank, plane, Nel(oneA, oneB), Nel(two))
 }
 
 object SVMData
