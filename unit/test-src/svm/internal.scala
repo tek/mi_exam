@@ -1,6 +1,7 @@
 package tryp
 package mi
 package svm
+package unit
 
 import breeze.linalg._
 import breeze.numerics._
@@ -26,7 +27,7 @@ object Dat
       lazy val classes = Nel(One: ModelClass[Dat], Two)
     }
 
-  implicit val datSample: Sample[Dat] =
+  implicit lazy val datSample: Sample[Dat] =
     new Sample[Dat] {
       def cls(a: Dat) = a.cls
 
@@ -51,6 +52,8 @@ extends Spec
 
   lazy val train = SVMEstimator(data, conf)
 
+  lazy val model = train.go
+
   lazy val predict = SVMPredictor(conf)
 
   lazy val validator = SVMValidator[Dat](data, conf)
@@ -74,7 +77,8 @@ extends InternalBase
   normal vector ${train.w must beCloseCol(normal)}
   offset $offset
   support vectors in plane equation $support
-  point on plane ${point must beClose(-b)}
+  point on plane ${point must beClose(b)}
+  predict training data $predictTrain
   """
 
   import Dat._
@@ -83,9 +87,11 @@ extends InternalBase
 
   val x2 = Col(3d, 1d)
 
-  lazy val data = Nel(Dat(x1, One), Dat(x2, Two))
+  val d1 = Dat(x1, One)
 
-  lazy val features = data map (_.feature)
+  val d2 = Dat(x2, Two)
+
+  lazy val data = Nel(d1, d2)
 
   def gramX = Mat((2d, 4d), (4d, 10d))
 
@@ -101,9 +107,13 @@ extends InternalBase
     train.supports.length must_== 2 and (
       train.supports.map(pt).toList must contain(beClose(supportValue)).forall)
 
-  def offset = train.offset must beValid(beClose(-2))
+  def offset = train.offset must beValid(beClose(2))
 
-  def point = train.w dot Col(2d, 1d)
+  def point = train.eval(Col(2d, 1d))
+
+  def predictTrain =
+    model.map(m => predict(d1, m).cls -> predict(d2, m).cls) must
+      beValid(One -> Two)
 }
 
 class KernelSVMSpec
@@ -154,9 +164,78 @@ extends InternalBase
     Dat(Col(10d, 3d), Two),
   )
 
-  lazy val features = data map (_.feature)
-
   def normal = normalize(train.w) must beCloseToCol(Col(1d, 0d), 1e-2)
 
   def dataPoints = data.map(pt).toList must contain(be_>=(0d)).forall
+}
+
+class ComplexSVMSpec
+extends InternalBase
+{
+  import Dat._
+
+  import viz._
+
+  import PlotBackend.ops._
+
+  def is = s2"""
+  Support Vector Machine
+
+  run $run
+  """
+
+  implicit lazy val datSamplePlotting =
+    new SamplePlotting[Dat] {
+      lazy val range = (-9d, 9d)
+
+      lazy val ranges = List(range, range)
+
+      lazy val plotCount = 1
+
+      lazy val projections =
+        List((0, 1))
+    }
+
+  // lazy val data =
+  //   Nel(
+  //     Dat(Col(4.682161942599795, -4.24450562186186), Two),
+  //     Dat(Col(-0.6117916465937832, -0.7024392055677455), One),
+  //     Dat(Col(3.08649538396474, -8.557304235680366), Two),
+  //     Dat(Col(-0.01515121521553045, -0.20326750998426046), One),
+  //     Dat(Col(2.217469993018402, 1.1534543725023876), One),
+  //     Dat(Col(-0.9167868968577179, 0.501287189226614), One),
+  //   )
+
+  override def lambda = .1d
+
+  val x1 = Col(1d, 0d)
+
+  val x2 = Col(3d, 0d)
+
+  lazy val data = Nel(Dat(x1, One), Dat(x2, Two))
+
+  def run = {
+    implicit val fconf =
+     FigureConf.default("mi", width = 1000, height = 1000, shape = Shape.Line)
+    val plot = PlotBackend[JFree[Dat]]
+    val svm = model.toOption.get
+    // hl
+    // p(svm)
+    // p(train.offset)
+    data.toList.foreach { a =>
+      val pred = predict.apply(a, svm)
+      p(s"${a.cls} => ${pred.cls}")
+    }
+    val i = instance_ParamPlotting_SVM
+    i.estimationPlot(svm)
+    // val j = plot.init
+    // val t = for {
+    //   _ <- j.setup
+    //   _ <- j.fold(data.unwrap)
+    //   _ <- j.step(svm)
+    // } yield ()
+    // t.unsafeRun
+    // Thread.sleep(3000)
+    1 === 1
+  }
 }

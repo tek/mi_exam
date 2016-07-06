@@ -32,7 +32,7 @@ extends GenBase[SVMData]
     direction: Col) =
     for {
       memberCount <- choose(members.min, members.max)
-      dist <- choose(2d, 3d)
+      dist <- choose(3d, 5d)
       mean = pivot + (dist * direction)
       covariance <- choose[Double](0.0001d, sampleRange / 2d)
     } yield ClassConf(num, rank, mean, covariance, memberCount)
@@ -51,7 +51,7 @@ extends GenBase[SVMData]
 
   def svm(maxFeatures: Int, members: Range) =
     for {
-      rank <- choose(3, maxFeatures)
+      rank <- choose(2, maxFeatures)
       plane <- genPlane(rank)
       one <- genClass(1, rank, members, plane.pivot, plane.normal)
       two <- genClass(-1, rank, members, plane.pivot, -plane.normal)

@@ -42,7 +42,7 @@ object MLP
 
   implicit def instance_ParamDiff_Weights: ParamDiff[Weights] =
     new ParamDiff[Weights] {
-      def diff(a: Weights, b: Weights) = 
+      def diff(a: Weights, b: Weights) =
         a.unwrap.zip(b.unwrap)
           .map { case (a, b) => sum(abs(a :- b)) / a.size }
           .sum
@@ -134,7 +134,8 @@ extends Predictor[Weights, MLP]
   def apply[S: Sample](sample: S, weights: Weights)
   : Prediction[S, Weights, MLP] = {
     val z = MLP.init(input(sample), transfer.deriv, weights)
-    Prediction(sample, weights, weights.foldLeft(z)(layer))
+    val pred = weights.foldLeft(z)(layer)
+    Prediction(sample, weights, pred, Sample[S].predictedClass(pred.output))
   }
 }
 

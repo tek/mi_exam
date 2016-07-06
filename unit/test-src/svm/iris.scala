@@ -27,11 +27,16 @@ extends IrisSpecBase[SVM, Double]
 {
   def title = "Support Vector Machine"
 
-  val lambda = 0.5d
+  val lambda = 0.1d
 
-  // override def trials = Some(1)
+  // override def trials = Some(3)
 
-  lazy val conf = SVMLearnConf.default(lambda)
+  // override def folds = 3
+
+  // val kernel = RBFKernel(1d)
+  val kernel: KernelFunc = LinearKernel
+
+  lazy val conf = SVMLearnConf.default(lambda, kernel = kernel)
 
   override implicit def modelClasses =
     SVMIrisInstances.instance_ModelClasses_Iris(Iris.Setosa, Iris.Versicolor)
@@ -42,6 +47,9 @@ extends IrisSpecBase[SVM, Double]
 class NormalIrisSpec
 extends IrisSpec
 with MSVSpec[Iris, SVM, Double]
+{
+  override val kernel = PolyKernel(2d, 1d)
+}
 
 class PlottedIrisSpec
 extends PlottedIrisSpecBase[SVM, Double]

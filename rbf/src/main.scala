@@ -99,8 +99,8 @@ extends Predictor[RBFNet[P], Double]
   def apply[S: Sample](sample: S, model: RBFNet[P])
   : Prediction[S, RBFNet[P], Double] = {
     val r = Col(rbfOut(sample.feature, model.bf).unwrap.toArray)
-    val z = model.weights.t * r
-    Prediction(sample, model, z)
+    val pred = model.weights.t * r
+    Prediction(sample, model, pred, Sample[S].predictedClass(pred))
   }
 }
 

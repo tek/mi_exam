@@ -2,9 +2,6 @@ package tryp
 package mi
 
 trait ModelClass[S]
-
-trait NamedClass[S]
-extends ModelClass[S]
 {
   def name: String
 
@@ -12,13 +9,13 @@ extends ModelClass[S]
 }
 
 trait AutoClass[S]
-extends NamedClass[S]
+extends ModelClass[S]
 {
   def name = this.className.toLowerCase
 }
 
 case class LabeledClass[S](name: String)
-extends NamedClass[S]
+extends ModelClass[S]
 
 @tc trait ModelClasses[S]
 {

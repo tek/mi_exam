@@ -7,7 +7,7 @@ import breeze.stats.distributions.MultivariateGaussian
 case class Data(feature: Col, num: Int)
 
 case class DataClass(num: Int)
-extends NamedClass[Data]
+extends ModelClass[Data]
 {
   def name = s"cls $num"
 }

@@ -1,7 +1,8 @@
 package tryp
 package mi
 
-case class Prediction[S, M, V](sample: S, model: M, value: V)
+case class Prediction[S, M, V](sample: S, model: M, value: V,
+  cls: ModelClass[S])
 
 trait Predictor[M, V]
 {

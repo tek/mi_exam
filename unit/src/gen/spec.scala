@@ -58,7 +58,7 @@ with ScalaCheck
       lazy val plotCount = data.rank.min(4)
 
       lazy val projections =
-        (0 until plotCount).map(i => i -> (i + 1) % plotCount).toList
+        (0 until plotCount - 1).map(i => i -> (i + 1) % plotCount).toList
     }
 
   def dataGen: Gen[A]
