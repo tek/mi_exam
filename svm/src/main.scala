@@ -55,7 +55,7 @@ extends Predictor[SVM, Double]
 {
   def classify(x: Col, model: SVM) = {
     import model._
-    signum(normal dot x - offset)
+    signum((normal dot x) - offset)
   }
 
   def apply[S: Sample](sample: S, model: SVM)
