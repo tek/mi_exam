@@ -181,7 +181,8 @@ extends InternalBase
   def is = s2"""
   Support Vector Machine
 
-  run $run
+  plot $plot
+  data points in the plane equation $dataPoints
   """
 
   implicit lazy val datSamplePlotting =
@@ -196,38 +197,23 @@ extends InternalBase
         List((0, 1))
     }
 
-  // lazy val data =
-  //   Nel(
-  //     Dat(Col(4.682161942599795, -4.24450562186186), Two),
-  //     Dat(Col(-0.6117916465937832, -0.7024392055677455), One),
-  //     Dat(Col(3.08649538396474, -8.557304235680366), Two),
-  //     Dat(Col(-0.01515121521553045, -0.20326750998426046), One),
-  //     Dat(Col(2.217469993018402, 1.1534543725023876), One),
-  //     Dat(Col(-0.9167868968577179, 0.501287189226614), One),
-  //   )
+  lazy val data =
+    Nel(
+      Dat(Col(4.682161942599795, -4.24450562186186), Two),
+      Dat(Col(-0.6117916465937832, -0.7024392055677455), One),
+      Dat(Col(3.08649538396474, -8.557304235680366), Two),
+      Dat(Col(-0.01515121521553045, -0.20326750998426046), One),
+      Dat(Col(2.217469993018402, 1.1534543725023876), One),
+      Dat(Col(-0.9167868968577179, 0.501287189226614), One),
+    )
 
   override def lambda = .1d
 
-  val x1 = Col(1d, 0d)
-
-  val x2 = Col(3d, 0d)
-
-  lazy val data = Nel(Dat(x1, One), Dat(x2, Two))
-
-  def run = {
+  def plot = {
     implicit val fconf =
      FigureConf.default("mi", width = 1000, height = 1000, shape = Shape.Line)
     val plot = PlotBackend[JFree[Dat]]
     val svm = model.toOption.get
-    // hl
-    // p(svm)
-    // p(train.offset)
-    data.toList.foreach { a =>
-      val pred = predict.apply(a, svm)
-      p(s"${a.cls} => ${pred.cls}")
-    }
-    val i = instance_ParamPlotting_SVM
-    i.estimationPlot(svm)
     // val j = plot.init
     // val t = for {
     //   _ <- j.setup
@@ -238,4 +224,6 @@ extends InternalBase
     // Thread.sleep(3000)
     1 === 1
   }
+
+  def dataPoints = data.map(pt).toList must contain(be_>=(0d)).forall
 }

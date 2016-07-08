@@ -67,7 +67,7 @@ extends GenBase[SVMData]
     for {
       rank <- choose(2, maxFeatures)
       plane <- genPlane(rank)
-      offset = plane.pivot * sampleRange / 4d
+      offset = plane.pivot * sampleRange
       oneA <- genCluster(1, rank, members, plane.pivot - offset)
       oneB <- genCluster(1, rank, members, plane.pivot + offset)
       two <- genCluster(-1, rank, members, plane.pivot)

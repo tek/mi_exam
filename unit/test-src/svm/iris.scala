@@ -31,9 +31,8 @@ extends IrisSpecBase[SVM, Double]
 
   // override def trials = Some(3)
 
-  // override def folds = 3
+  override def folds = 20
 
-  // val kernel = RBFKernel(1d)
   val kernel: KernelFunc = LinearKernel
 
   lazy val conf = SVMLearnConf.default(lambda, kernel = kernel)
@@ -48,7 +47,8 @@ class NormalIrisSpec
 extends IrisSpec
 with MSVSpec[Iris, SVM, Double]
 {
-  override val kernel = PolyKernel(2d, 1d)
+  override val kernel = RBFKernel(.5d)
+  // override val kernel = PolyKernel(2d, 1d)
 }
 
 class PlottedIrisSpec
