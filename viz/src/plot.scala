@@ -8,7 +8,7 @@ import fs2.util.Task
 {
   def setup(a: A): Task[Unit]
   def init: A
-  def fold[B: Sample](a: A)(data: List[B]): Task[Unit]
+  def fold[B: Sample](a: A)(train: List[B], test: List[B]): Task[Unit]
   def step[P: ParamPlotting](a: A)(params: P): Task[Unit]
 }
 

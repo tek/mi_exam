@@ -43,15 +43,24 @@ extends Logging
         r
       }
 
+      val sampleShape = new Ellipse2D.Double(-4.0, -4.0, 8.0, 8.0)
+
+      val testSampleColor = Color.gray
+
       lazy val sampleRenderer = {
         val r = new XYLineAndShapeRenderer(false, true)
         r.setBaseOutlinePaint(Color.black)
         r.setUseOutlinePaint(true)
         r.setUseFillPaint(true)
-        Sample[A].classes.toList.zipWithIndex foreach { case (c, i) =>
-          r.setSeriesShape(i, sampleShape)
-          r.setSeriesFillPaint(i, color(i))
+        val classes = Sample[A].classes.toList
+        classes.zipWithIndex foreach {
+          case (c, i) =>
+            r.setSeriesShape(i, sampleShape)
+            r.setSeriesFillPaint(i, color(i))
         }
+        val testIndex = classes.length
+        r.setSeriesShape(testIndex, sampleShape)
+        r.setSeriesFillPaint(testIndex, testSampleColor)
         r
       }
 
@@ -59,8 +68,6 @@ extends Logging
 
       def color(i: Int) =
         colors.lift(i % colors.length).getOrElse(Color.orange)
-
-      val sampleShape = new Ellipse2D.Double(-4.0, -4.0, 8.0, 8.0)
 
       def data(xrange: (Double, Double), yrange: (Double, Double)) = {
         val samples = new DefaultXYZDataset
@@ -95,14 +102,19 @@ extends Logging
         Task(a.figure.show())
       }
 
-      def fold[B: Sample](a: JFree[A])(samples: List[B]): Task[Unit] = {
-        log.debug(s"Plotting fold: $samples")
+      def fold[B: Sample](a: JFree[A])
+      (train: List[B], test: List[B]): Task[Unit] = {
+        log.debug(s"Plotting fold: $train")
         Sample[B].classes.unwrap.zipWithIndex
           .map { case (c, i) =>
-            val data = samples.filter(_.cls == c).map(_.feature)
+            val data = train.filter(_.cls == c).map(_.feature)
             update(a)(_.samples, c.name, data, data.length.gen(0d).toArray)
           }
           .sequence_
+          .flatMap { _ =>
+            update(a)(_.samples, "test", test.map(_.feature),
+              test.length.gen(0d).toArray)
+          }
       }
 
       def step[P: ParamPlotting](a: JFree[A])(params: P) = {
@@ -116,12 +128,13 @@ extends Logging
       (dataset: JFreeData => DefaultXYZDataset, name: String, data: List[Col],
         size: Array[Double]) = {
           val plots = samplePlotting.plots(data, size)
-          val tasks = a.data.zip(plots).map {
-            case (jdata, plot) => Task {
-              dataset(jdata).addSeries(name, plot)
+          a.data
+            .zip(plots)
+            .map {
+              case (jdata, plot) =>
+                Task(dataset(jdata).addSeries(name, plot))
             }
-          }
-          tasks.sequence_
+            .sequence_
         }
 
       def dataSize = 0.05d

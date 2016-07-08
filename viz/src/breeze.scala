@@ -32,7 +32,7 @@ trait BreezeInstances
 
       def setup(a: BreezeData) = Task(())
 
-      def fold[B: Sample](a: BreezeData)(s: List[B]) = {
+      def fold[B: Sample](a: BreezeData)(s: List[B], test: List[B]) = {
         val b = s.map(_.feature)
         Task {
           a.plot += scatterPlot(Dataset(b, b.length.gen(dataSize).toArray))
