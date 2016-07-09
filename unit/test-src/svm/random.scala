@@ -65,7 +65,7 @@ with SVMRandomSpecBase
 
   // override def trials = 1.some
 
-  def lambda = 0.05d
+  def lambda = 0.00005d
 
   lazy val dataGen = SVMGen.linearSvm(10, Range(folds * 5, folds * 10))
 
