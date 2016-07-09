@@ -14,12 +14,14 @@ extends MultiBuild("mi_exam", deps = MiDeps)
 
   lazy val svm = "svm" << core
 
+  lazy val pca = "pca" << core
+
   lazy val viz = "viz" << core
 
   def blas =
     "-Dcom.github.fommil.netlib.BLAS=com.github.fommil.netlib.NativeRefBLAS"
 
-  lazy val unit = ("unit" << mlp << rbf << viz << svm)
+  lazy val unit = ("unit" << mlp << rbf << viz << svm << pca)
     .settingsV(
       fork := true,
       javaOptions += {
