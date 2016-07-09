@@ -29,12 +29,6 @@ extends GenBase[SVMData]
 
   import genData._
 
-  def genCluster(num: Int, rank: Int, members: Range, mean: Col) =
-    for {
-      memberCount <- choose(members.min, members.max)
-      covariance <- choose[Double](0.0001d, sampleRange / 2d)
-    } yield ClassCluster(num, rank, mean, covariance, memberCount)
-
   def genLinearClass(num: Int, rank: Int, members: Range, pivot: Col,
     direction: Col) =
       for {
@@ -42,11 +36,6 @@ extends GenBase[SVMData]
         mean = pivot + (dist * direction)
         cluster <- genCluster(num, rank, members, mean)
       } yield cluster
-
-  def pointInPlane(normal: Col, bias: Double, rank: Int) =
-    for {
-      l <- genSample(rank)
-    } yield l * (bias / (normal dot l))
 
   def genPlane(rank: Int) = for {
     w <- genSample(rank)

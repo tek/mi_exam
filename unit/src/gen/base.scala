@@ -28,9 +28,22 @@ object GenBase
 
 abstract class GenBase[A: GenData]
 {
+  import Gen._
+
   lazy val genData = GenData[A]
 
   def genSample(rank: Int) = GenBase.genSample(rank, genData.sampleRange)
+
+  def genCluster(num: Int, rank: Int, members: Range, mean: Col) =
+    for {
+      memberCount <- choose(members.min, members.max)
+      covariance <- choose[Double](0.0001d, genData.sampleRange / 2d)
+    } yield ClassCluster(num, rank, mean, covariance, memberCount)
+
+  def pointInPlane(normal: Col, bias: Double, rank: Int) =
+    for {
+      l <- genSample(rank)
+    } yield l * (bias / (normal dot l))
 }
 
 trait RandomConf
