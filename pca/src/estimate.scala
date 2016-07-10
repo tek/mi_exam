@@ -11,11 +11,37 @@ case class PCAEstimator[S: Sample]
 (data: Nel[S], config: PCALearnConf)
 extends SimpleEstimator[PCA]
 {
-  def x = data.map(_.feature).unwrap
+  lazy val n = data.length.toDouble
 
-  def xm = sum(x) / x.length.toDouble
+  lazy val x = Mat(data.map(_.feature).unwrap: _*)
 
-  def centered = x map (_ - xm)
+  lazy val xm = (sum(x(::, *)) / n).t
 
-  def go = Valid(PCA(Mat(1d)))
+  lazy val centered = x(*, ::) - xm
+
+  lazy val covariance = (centered.t * centered) / (n - 1)
+
+  lazy val eigen = {
+    val eigSym.EigSym(l, v) = eigSym(covariance)
+    val eigenSorted = l.data.toList zip v.rowCols sortBy (- _._1)
+    eigenSorted.unzip
+  }
+
+  lazy val allEigenvalues = eigen._1
+
+  lazy val allEigenvectors = eigen._2
+
+  lazy val energies = accumulate(allEigenvalues.toCol).data.toList
+
+  lazy val lowestEnergy = energies.lastOption | NaN
+
+  lazy val energyRatios = energies map (_ / lowestEnergy)
+
+  lazy val cutoff = energyRatios.indexWhere(_ >= 0.9d) + 1
+
+  lazy val λ = allEigenvalues take cutoff
+
+  lazy val pcs = allEigenvectors take cutoff
+
+  lazy val go = Valid(PCA(Mat(1d)))
 }

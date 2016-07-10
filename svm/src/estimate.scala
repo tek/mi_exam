@@ -99,7 +99,7 @@ extends SimpleEstimator[SVM]
   lazy val offset =
     support flatMap (s => s.value.map(eval(s.feature) - _))
 
-  def go =
+  lazy val go =
     offset.map(b => SVM(w, b, supports.toList map (_.feature), supportCy))
       .toValidatedNel
 }
