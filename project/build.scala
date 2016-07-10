@@ -21,19 +21,26 @@ extends MultiBuild("mi_exam", deps = MiDeps)
   def blas =
     "-Dcom.github.fommil.netlib.BLAS=com.github.fommil.netlib.NativeRefBLAS"
 
-  lazy val unit = ("unit" << mlp << rbf << viz << svm << pca)
-    .settingsV(
+  def test = List(
       fork := true,
-      javaOptions += {
-        val datadir = (baseDirectory in ThisBuild).value / "data"
-        s"-Ddatadir=$datadir"
-      },
       javaOptions += blas
     )
 
+  lazy val unit = ("unit" << mlp << rbf << viz << svm << pca)
+    .settings(test)
+    .settingsV(
+      javaOptions += {
+        val datadir = (baseDirectory in ThisBuild).value / "data"
+        s"-Ddatadir=$datadir"
+      }
+    )
+
+  lazy val rand = ("rand" << rbf << svm << pca << unit)
+    .settings(test)
+
   override def consoleImports = """
   import cats._, data._, syntax.all._, std.all._
-  import breeze._, linalg._
-  import tryp._
+  import breeze._, linalg._, numerics._
+  import tryp._, mi._
   """
 }
