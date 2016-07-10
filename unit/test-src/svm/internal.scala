@@ -58,11 +58,9 @@ extends Spec
 
   lazy val validator = SVMValidator[Dat](data, conf)
 
-  lazy val pred = train.go map (predict(data.head, _))
-
   lazy val b = train.offset.getOrElse(Inf)
 
-  def pt(d: Dat) = d.valueOrNaN * (train.w dot d.feature + b)
+  def pt(d: Dat) = d.valueOrNaN * (train.w dot d.feature - b)
 }
 
 class TrivialSVMSpec
@@ -74,7 +72,7 @@ extends InternalBase
   data gram matrix ${train.gramX must_== gramX}
   label matrix $labels
   quadratic form ${train.form must_== form}
-  normal vector ${train.w must beCloseCol(normal)}
+  normal vector ${train.w must beClose(normal)}
   offset $offset
   support vectors in plane equation $support
   point on plane ${point must beClose(b)}
@@ -107,7 +105,7 @@ extends InternalBase
     train.supports.length must_== 2 and (
       train.supports.map(pt).toList must contain(beClose(supportValue)).forall)
 
-  def offset = train.offset must beValid(beClose(2))
+  def offset = train.offset must beValid(beClose(2d))
 
   def point = train.eval(Col(2d, 1d))
 
@@ -136,8 +134,6 @@ extends TrivialSVMSpec
   override def normal = super.normal / coeff
 
   override def supportValue = super.supportValue / coeff
-
-  override def point = super.point * 2
 }
 
 class SimpleSVMSpec
@@ -164,7 +160,7 @@ extends InternalBase
     Dat(Col(10d, 3d), Two),
   )
 
-  def normal = normalize(train.w) must beCloseToCol(Col(1d, 0d), 1e-2)
+  def normal = normalize(train.w) must beCloseWithin(Col(1d, 0d), 1e-2)
 
   def dataPoints = data.map(pt).toList must contain(be_>=(0d)).forall
 }
@@ -182,7 +178,6 @@ extends InternalBase
   Support Vector Machine
 
   plot $plot
-  data points in the plane equation $dataPoints
   """
 
   implicit lazy val datSamplePlotting =
@@ -209,21 +204,23 @@ extends InternalBase
 
   override def lambda = .1d
 
+  def wantPlot = false
+
   def plot = {
-    implicit val fconf =
-     FigureConf.default("mi", width = 1000, height = 1000, shape = Shape.Line)
-    val plot = PlotBackend[JFree[Dat]]
-    val svm = model.toOption.get
-    // val j = plot.init
-    // val t = for {
-    //   _ <- j.setup
-    //   _ <- j.fold(data.unwrap)
-    //   _ <- j.step(svm)
-    // } yield ()
-    // t.unsafeRun
-    // Thread.sleep(3000)
+    if (wantPlot) {
+      implicit val fconf =
+      FigureConf.default("mi", width = 1000, height = 1000, shape = Shape.Line)
+      val plot = PlotBackend[JFree[Dat]]
+      val svm = model.toOption.get
+      val j = plot.init
+      val t = for {
+        _ <- j.setup
+        _ <- j.fold(data.unwrap, Nil)
+        _ <- j.step(svm)
+      } yield ()
+      t.unsafeRun
+      Thread.sleep(3000)
+    }
     1 === 1
   }
-
-  def dataPoints = data.map(pt).toList must contain(be_>=(0d)).forall
 }
