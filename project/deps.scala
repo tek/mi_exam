@@ -45,8 +45,11 @@ extends tryp.Deps
   )
 
   lazy val unit = ids(
-    "org.specs2" %% "specs2-scalacheck" % specsV,
     pulsar("unit-core")
+  )
+
+  lazy val rand = ids(
+    "org.specs2" %% "specs2-scalacheck" % specsV
   )
 
   lazy val macroConsole = ids(
