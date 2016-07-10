@@ -47,7 +47,7 @@ extends tryp.Deps
   lazy val unit = ids(
     "org.specs2" %% "specs2-scalacheck" % specsV,
     pulsar("unit-core")
-  ) ++ imp
+  )
 
   lazy val macroConsole = ids(
     pulsar("core")
