@@ -2,12 +2,16 @@ package tryp
 package mi
 
 import breeze.plot.DomainFunction
+import breeze.linalg._
+
 import cats.Foldable
 
 final class MatOps(val self: Mat)
 extends AnyVal
 {
   def dims = (self.rows, self.cols)
+
+  def rowCols: List[Col] = self(*, ::).toIndexedSeq.toList map (_.t)
 }
 
 trait ToMatOps
