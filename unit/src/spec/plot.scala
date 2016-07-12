@@ -5,7 +5,7 @@ package viz
 trait PlottedSpecHelpers[A, P, O]
 extends MSVSpecBase[A, P, O]
 {
-  type PMS = PlottedModelSelection[A, JFree[A], P, O]
+  type PMS = PlottedModelSelection[A, JFree, P, O]
 
   override def performableTimeout = 2.minutes
 
@@ -18,10 +18,11 @@ extends MSVSpecBase[A, P, O]
       shape = estimationShape)
 
   def mkPms(msv: MSV)
-  (implicit paramPlotting: ParamPlotting[P],
-    plotBE: PlotBackend[JFree[A]],
-    sample: Sample[A]) = 
-      PlottedModelSelection[A, JFree[A], P, O](msv, stepInterval)
+  (implicit paramViz: ParamVizData[P],
+    plotBE: Viz[JFree, A, P],
+    sample: Sample[A]
+    ) = 
+      PlottedModelSelection[A, JFree, P, O](msv, stepInterval)
 
   def validationError(pm: ModelSelectionValidation[A, P, O]) = {
     pm.printer.short()
@@ -35,7 +36,7 @@ extends MSVSpecBase[A, P, O]
     error(pms) computes beValid(be_<=(margin))
 }
 
-abstract class PlottedSpecBase[A: Sample, P: ParamPlotting, O]
+abstract class PlottedSpecBase[A: Sample, P: ParamVizData, O]
 extends PlottedSpecHelpers[A, P, O]
 {
   override def is = s2"""
@@ -58,7 +59,7 @@ extends PlottedSpecHelpers[A, P, O]
     error(pms) computes beValid(be_<=(margin))
 }
 
-abstract class PlottedIrisSpecBase[P: ParamPlotting, O]
+abstract class PlottedIrisSpecBase[P: ParamVizData: JParam, O]
 extends PlottedSpecBase[Iris, P, O]
 {
   implicit override def fconf = super.fconf

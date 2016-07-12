@@ -79,7 +79,7 @@ with ScalaCheck
     val classes = createClasses(classConf)
     val data = classes.flatMap(_.data)
     implicit val sample = mkSample(conf, classes)
-    implicit val samplePlotting = mkSamplePlotting(conf)
+    implicit val sampleViz = mkSampleViz(conf)
     result(conf, classes, data)
   }
 }

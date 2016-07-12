@@ -8,7 +8,7 @@ import scalaz.stream._
 
 import spire.implicits._
 
-import viz.SamplePlotting
+import viz.SampleVizData
 
 case class Iris(feature: Col, cls: ModelClass[Iris])
 
@@ -70,8 +70,8 @@ trait IrisInstances
       def featureCount = 4
     }
 
-  implicit lazy val instance_SamplePlotting_Iris: SamplePlotting[Iris] =
-    new SamplePlotting[Iris] {
+  implicit lazy val instance_SampleVizData_Iris: SampleVizData[Iris] =
+    new SampleVizData[Iris] {
       def ranges = List((0d, 10d), (0d, 5d), (0d, 10d), (0d, 5d))
 
       def plotCount = 4

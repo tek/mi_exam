@@ -3,6 +3,8 @@ package mi
 package rbf
 package unit
 
+import viz._
+
 trait IrisSpec
 extends IrisSpecBase[RBFs[GaussBF], Double]
 {
@@ -26,5 +28,5 @@ extends IrisSpec
 with MSVSpec[Iris, RBFs[GaussBF], Double]
 
 class PlottedIrisSpec
-extends viz.PlottedIrisSpecBase[RBFs[GaussBF], Double]
+extends PlottedIrisSpecBase[RBFs[GaussBF], Double]
 with IrisSpec

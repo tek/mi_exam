@@ -63,7 +63,7 @@ with SVMRandomSpecBase
 
   override def numTests = 1
 
-  // override def trials = 1.some
+  override def trials = 2.some
 
   def lambda = 0.00005d
 
@@ -71,7 +71,7 @@ with SVMRandomSpecBase
 
   def trainSvm(classData: SVMData, msv: MSV, margin: Double)
   (implicit sample: Sample[Data]) = {
-    implicit val sp = mkSamplePlotting(classData)
+    implicit val sp = mkSampleViz(classData)
     trainPms(mkPms(msv), margin)
   }
 }

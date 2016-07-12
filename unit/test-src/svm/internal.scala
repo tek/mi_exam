@@ -165,14 +165,12 @@ extends InternalBase
   def dataPoints = data.map(pt).toList must contain(be_>=(0d)).forall
 }
 
-class ComplexSVMSpec
+class PlotSVMSpec
 extends InternalBase
 {
   import Dat._
 
   import viz._
-
-  import PlotBackend.ops._
 
   def is = s2"""
   Support Vector Machine
@@ -180,8 +178,8 @@ extends InternalBase
   plot $plot
   """
 
-  implicit lazy val datSamplePlotting =
-    new SamplePlotting[Dat] {
+  implicit lazy val datSampleViz =
+    new SampleVizData[Dat] {
       lazy val range = (-9d, 9d)
 
       lazy val ranges = List(range, range)
@@ -210,13 +208,13 @@ extends InternalBase
     if (wantPlot) {
       implicit val fconf =
       FigureConf.default("mi", width = 1000, height = 1000, shape = Shape.Line)
-      val plot = PlotBackend[JFree[Dat]]
+      val plot = JFree.instance_Viz_JFree
       val svm = model.toOption.get
       val j = plot.init
       val t = for {
-        _ <- j.setup
-        _ <- j.fold(data.unwrap, Nil)
-        _ <- j.step(svm)
+        _ <- plot.setup(j)
+        _ <- plot.fold(j)(data.unwrap, Nil)
+        _ <- plot.step(j)(svm)
       } yield ()
       t.unsafeRun
       Thread.sleep(3000)

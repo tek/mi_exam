@@ -14,25 +14,24 @@ import cats.data.Validated._
 import breeze.plot._
 
 import ModelSelection._
-import PlotBackend.ops._
-import ParamPlotting.ops._
+import ParamVizData.ops._
 
-case class Plotter[A: Sample, B: PlotBackend, P: ParamPlotting]
+case class Plotter[A: Sample, B, P: ParamVizData]
 (plotData: B, data: Option[(Nel[A], Nel[A])])
-(implicit strat: Strategy)
+(implicit strat: Strategy, backend: Viz[B, A, P])
 {
   def setup: Task[Plotter[A, B, P]] = {
-    plotData.setup.map(_ => this)
+    backend.setup(plotData).map(_ => this)
   }
 
   def fold(train: Nel[A], test: Nel[A]): Task[Plotter[A, B, P]] = {
-    plotData.fold(train.unwrap, test.unwrap)
+    backend.fold(plotData)(train.unwrap, test.unwrap)
       .map(a => Plotter(plotData, Some((train, test))))
   }
 
   def step(est: Est[P]): Task[Plotter[A, B, P]] = {
     data
-      .map(a => plotData.step(est.params))
+      .map(a => backend.step(plotData)(est.params))
       .getOrElse(Task.now(()))
       .map(a => this)
   }
@@ -40,8 +39,9 @@ case class Plotter[A: Sample, B: PlotBackend, P: ParamPlotting]
 
 object Plotter
 {
-  def empty[A: Sample, B: PlotBackend, P: ParamPlotting](implicit strat: Strategy) =
-    Plotter[A, B, P](PlotBackend[B].init, None)
+  def empty[A: Sample, B, P: ParamVizData]
+  (implicit strat: Strategy, backend: Viz[B, A, P]) =
+    Plotter[A, B, P](backend.init, None)
 }
 
 object PlottedModelSelection
@@ -82,9 +82,10 @@ object PlottedModelSelection
 }
 
 case class PMSCore
-[A: Sample, B: PlotBackend, P: ParamPlotting, O]
+[A: Sample, B, P: ParamVizData, O]
 (msv: ModelSelectionValidator[A, P, O], q: Queue[Task, Learn[A, P, O]],
   finished: Signal[Task, Boolean], stepInterval: FiniteDuration)
+(implicit backend: Viz[B, A, P])
 {
   import PlottedModelSelection._
 
@@ -140,9 +141,10 @@ case class PMSCore
 }
 
 case class PlottedModelSelection
-[A: Sample, B: PlotBackend, P: ParamPlotting, O]
+[A: Sample, B, P: ParamVizData, O]
 (msv: ModelSelectionValidator[A, P, O],
   stepInterval: FiniteDuration = 100.millis)
+(implicit backend: Viz[B, A, P])
 {
   import PlottedModelSelection._
 

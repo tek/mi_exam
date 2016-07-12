@@ -4,20 +4,20 @@ package viz
 
 import fs2.util.Task
 
-@tc trait PlotBackend[A]
+abstract class Viz[A, S, P]
 {
   def setup(a: A): Task[Unit]
   def init: A
-  def fold[B: Sample](a: A)(train: List[B], test: List[B]): Task[Unit]
-  def step[P: ParamPlotting](a: A)(params: P): Task[Unit]
+  def fold(a: A)(train: List[S], test: List[S]): Task[Unit]
+  def step(a: A)(params: P): Task[Unit]
 }
 
-@tc trait ParamPlotting[P]
+@tc trait ParamVizData[P]
 {
-  def estimationPlot(data: P): Dataset
+  def estimationPlot(data: P): Nel[Dataset]
 }
 
-@tc abstract class SamplePlotting[A: Sample]
+@tc abstract class SampleVizData[A: Sample]
 extends AnyRef
 {
   type Range = (Double, Double)

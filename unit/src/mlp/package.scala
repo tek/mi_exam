@@ -4,4 +4,4 @@ package mlp
 package unit
 
 object `package`
-extends PlottingInstances
+extends VizInstances

@@ -20,29 +20,30 @@ case class BreezeData(figure: BreezeFigure)
   def refresh() = figure.refresh()
 }
 
-import ParamPlotting.ops._
+import ParamVizData.ops._
 
 trait BreezeInstances
 {
-  implicit lazy val instance_PlotBackend_BreezeData =
-    new PlotBackend[BreezeData] {
+  implicit def instance_PlotBackend_BreezeData
+  [S: SampleVizData: Sample, P: ParamVizData] =
+    new Viz[BreezeData, S, P] {
       implicit def strat = Strategy.sequential
 
       def init = BreezeData(BreezeFigure())
 
       def setup(a: BreezeData) = Task(())
 
-      def fold[B: Sample](a: BreezeData)(s: List[B], test: List[B]) = {
+      def fold(a: BreezeData)(s: List[S], test: List[S]) = {
         val b = s.map(_.feature)
         Task {
           a.plot += scatterPlot(Dataset(b, b.length.gen(dataSize).toArray))
         }
       }
 
-      def step[P: ParamPlotting](a: BreezeData)(params: P) = {
+      def step(a: BreezeData)(params: P) = {
         Task {
           a.clear()
-          a.plot += scatterPlot(params.estimationPlot)
+          params.estimationPlot map scatterPlot map a.plot.+=
           a.refresh()
         }
       }

@@ -57,7 +57,7 @@ with PCARandomSpecBase
 
   def trainPca(classData: PCAData, msv: MSV, margin: Double)
   (implicit sample: Sample[Data]) = {
-    implicit val sp = mkSamplePlotting(classData)
+    implicit val sp = mkSampleViz(classData)
     trainPms(mkPms(msv), margin)
   }
 }

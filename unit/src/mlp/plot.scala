@@ -9,16 +9,16 @@ import fs2._, util._
 
 import breeze.plot._
 
-trait PlottingInstances
+trait VizInstances
 {
-  implicit lazy val instance_Plotting_Weights =
-    new ParamPlotting[Weights] {
+  implicit lazy val instance_Viz_Weights =
+    new ParamVizData[Weights] {
       def estimationCenters(data: Weights): Array[Array[Double]] = {
         Array(Array())
       }
 
-      def estimationPlot(data: Weights): Dataset = {
-        Dataset(List(), Array(1d))
+      def estimationPlot(data: Weights): Nel[Dataset] = {
+        Nel(Dataset(List(), Array(1d)))
       }
     }
 }
