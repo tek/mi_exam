@@ -59,8 +59,6 @@ extends NumericMatchers
 {
   def closeThreshold = 1e-5
 
-  implicit val zListInst = scalaz.std.list.listInstance
-
   def beCloseWithin[A: BeClose](target: A, epsilon: Double) =
     new BeCloseMatcher(target, epsilon)
 
