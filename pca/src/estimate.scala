@@ -15,9 +15,9 @@ extends SimpleEstimator[PCA]
 
   lazy val x = Mat(data.map(_.feature).unwrap: _*)
 
-  lazy val xm = (sum(x(::, *)) / n).t
+  lazy val µ = (sum(x(::, *)) / n).t
 
-  lazy val centered = x(*, ::) - xm
+  lazy val centered = x(*, ::) - µ
 
   lazy val covariance = (centered.t * centered) / (n - 1)
 
@@ -43,5 +43,5 @@ extends SimpleEstimator[PCA]
 
   lazy val pcs = allEigenvectors take cutoff
 
-  lazy val go = Valid(PCA(Mat(1d)))
+  lazy val go = Valid(PCA(pcs, µ, λ))
 }

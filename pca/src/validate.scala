@@ -6,7 +6,8 @@ case class PCAPredictor(config: PCALearnConf)
 extends Predictor[PCA, Double]
 {
   def apply[S: Sample](sample: S, model: PCA)
-  : Prediction[S, PCA, Double] = ???
+  : Prediction[S, PCA, Double] =
+    Prediction(sample, model, 1d, Sample[S].predictedClass(1d))
 }
 
 case class PCAValidator[S: Sample]

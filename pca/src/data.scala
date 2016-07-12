@@ -14,7 +14,10 @@ object PCALearnConf
   }
 }
 
-case class PCA(basis: Mat)
+case class PCA(basis: List[Col], µ: Col, λ: List[Double])
+{
+  def scaledBasis = basis zip λ map { case (a, b) => a * b }
+}
 
 object PCA
 {

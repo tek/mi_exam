@@ -32,7 +32,7 @@ extends PCARandomSpecBase
 
   // override def trials = 3.some
 
-  lazy val dataGen = PCAGen.pca(10, Range(folds * 5, folds * 10))
+  lazy val dataGen = PCAGen.pca(2, Range(folds * 5, folds * 10))
 
   // override val kernel: KernelFunc = PolyKernel(2d, 1d)
 
