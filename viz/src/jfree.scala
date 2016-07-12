@@ -34,9 +34,13 @@ extends JFreeInstances
   val testSampleColor = Color.gray
 }
 
-@tc abstract class JSample[A: SampleVizData: Sample]
+@tc abstract class JSample[A: SampleVizData]
 {
   import JFree._
+
+  implicit def sampleData = SampleVizData[A]
+
+  implicit def sample = sampleData.sample
 
   val sampleShape = new Ellipse2D.Double(-4.0, -4.0, 8.0, 8.0)
 
@@ -45,7 +49,7 @@ extends JFreeInstances
     r.setBaseOutlinePaint(outlineColor)
     r.setUseOutlinePaint(true)
     r.setUseFillPaint(true)
-    val classes = Sample[A].classes.toList
+    val classes = sample.classes.toList
     classes.zipWithIndex foreach {
       case (c, i) =>
         r.setSeriesShape(i, sampleShape)
@@ -56,15 +60,21 @@ extends JFreeInstances
     r.setSeriesFillPaint(testIndex, testSampleColor)
     r
   }
+
+  def train(data: List[A]) =
+    sample.classes.unwrap.zipWithIndex
+      .map { case (c, i) =>
+        c.name -> data.filter(_.cls == c).map(_.feature)
+      }
 }
 
 object JSample
 {
-  implicit def any[A: SampleVizData: Sample] =
+  implicit def any[A: SampleVizData] =
     new JSample {}
 }
 
-@tc abstract class JParam[P]
+@tc abstract class JParam[P: ParamVizData]
 {
   def renderer: AbstractXYItemRenderer
 
@@ -74,10 +84,12 @@ object JSample
     r.setSeriesFillPaint(0, Color.blue)
     r
   }
+
+  def estimation(params: P) = ParamVizData[P].estimationPlot(params)
 }
 
 final class JFreeViz
-[S: SampleVizData: Sample, P: ParamVizData: JParam]
+[S: JSample, P: JParam]
 (implicit fconf: FigureConf)
 extends Viz[JFree, S, P]
 with Logging
@@ -86,9 +98,9 @@ with Logging
 
   implicit def strat = Strategy.sequential
 
-  def sampleViz = SampleVizData[S]
+  lazy val jsam = JSample[S]
 
-  def jsam = JSample[S]
+  import jsam._
 
   def jparam = JParam[P]
 
@@ -107,16 +119,16 @@ with Logging
     ay.setRange(yrange._1, yrange._2)
     plot.setDataset(0, samples)
     plot.setDataset(1, estimation)
-    plot.setRenderer(0, jsam.sampleRenderer)
+    plot.setRenderer(0, sampleRenderer)
     plot.setRenderer(1, jparam.estimationRenderer)
     plot.setBackgroundPaint(Color.white)
     JFreeData(chart, samples, estimation)
   }
 
   def init = {
-    val d = sampleViz.projectionRanges
+    val d = sampleData.projectionRanges
       .map { case (x, y) => data(x, y) }
-    val rows = Math.ceil(Math.sqrt(sampleViz.plotCount)).toInt
+    val rows = Math.ceil(Math.sqrt(sampleData.plotCount)).toInt
     val figure = new Figure(fconf.copy(rows = rows), d.map(_.chart))
     JFree(figure, d)
   }
@@ -127,10 +139,9 @@ with Logging
 
   def fold(a: JFree)(train: List[S], test: List[S]): Task[Unit] = {
     log.debug(s"Viz fold: $train")
-    Sample[S].classes.unwrap.zipWithIndex
-      .map { case (c, i) =>
-        val data = train.filter(_.cls == c).map(_.feature)
-        update(a)(_.samples, c.name, data, data.length.gen(0d).toArray)
+    jsam.train(train)
+      .map { case (name, data) =>
+        update(a)(_.samples, name, data, data.length.gen(0d).toArray)
       }
       .sequence_
       .flatMap { _ =>
@@ -141,7 +152,7 @@ with Logging
 
   def step(a: JFree)(params: P): Task[Unit] = {
     log.debug(s"Viz step: $params")
-    val plots = params.estimationPlot
+    val plots = jparam.estimation(params)
     plots
       .zipWithIndex
       .map { case (plot, index) =>
@@ -154,7 +165,7 @@ with Logging
   private[this] def update(a: JFree)
   (dataset: JFreeData => DefaultXYZDataset, name: String, data: List[Col],
     size: Array[Double]) = {
-      val plots = sampleViz.plots(data, size)
+      val plots = sampleData.plots(data, size)
       a.data
         .zip(plots)
         .map {
@@ -169,8 +180,7 @@ with Logging
 
 trait JFreeInstances
 {
-  implicit def instance_Viz_JFree
-  [S: SampleVizData: Sample, P: ParamVizData: JParam]
+  implicit def instance_Viz_JFree[S: JSample, P: JParam]
   (implicit fconf: FigureConf) =
     new JFreeViz[S, P]
 }

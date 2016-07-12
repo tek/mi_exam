@@ -25,7 +25,7 @@ import ParamVizData.ops._
 trait BreezeInstances
 {
   implicit def instance_PlotBackend_BreezeData
-  [S: SampleVizData: Sample, P: ParamVizData] =
+  [S: Sample, P: ParamVizData] =
     new Viz[BreezeData, S, P] {
       implicit def strat = Strategy.sequential
 

@@ -14,9 +14,8 @@ import cats.data.Validated._
 import breeze.plot._
 
 import ModelSelection._
-import ParamVizData.ops._
 
-case class Plotter[A: Sample, B, P: ParamVizData]
+case class Plotter[A, B, P]
 (plotData: B, data: Option[(Nel[A], Nel[A])])
 (implicit strat: Strategy, backend: Viz[B, A, P])
 {
@@ -39,7 +38,7 @@ case class Plotter[A: Sample, B, P: ParamVizData]
 
 object Plotter
 {
-  def empty[A: Sample, B, P: ParamVizData]
+  def empty[A, B, P]
   (implicit strat: Strategy, backend: Viz[B, A, P]) =
     Plotter[A, B, P](backend.init, None)
 }
@@ -81,8 +80,7 @@ object PlottedModelSelection
   }
 }
 
-case class PMSCore
-[A: Sample, B, P: ParamVizData, O]
+case class PMSCore[A, B, P, O]
 (msv: ModelSelectionValidator[A, P, O], q: Queue[Task, Learn[A, P, O]],
   finished: Signal[Task, Boolean], stepInterval: FiniteDuration)
 (implicit backend: Viz[B, A, P])
@@ -140,8 +138,7 @@ case class PMSCore
       .pull(waitForCompletion(SLeft[Unit, Res](())))
 }
 
-case class PlottedModelSelection
-[A: Sample, B, P: ParamVizData, O]
+case class PlottedModelSelection[A, B, P, O]
 (msv: ModelSelectionValidator[A, P, O],
   stepInterval: FiniteDuration = 100.millis)
 (implicit backend: Viz[B, A, P])

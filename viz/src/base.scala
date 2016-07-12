@@ -22,6 +22,8 @@ extends AnyRef
 {
   type Range = (Double, Double)
 
+  def sample = Sample[A]
+
   def ranges: List[Range]
   def plotCount: Int
   def projections: List[(Int, Int)]
