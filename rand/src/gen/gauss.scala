@@ -12,11 +12,12 @@ extends ModelClass[Data]
   def name = s"cls $num"
 }
 
-case class ClassCluster(num: Int, features: Int, mean: Col, covariance: Double,
-  members: Int)
+case class ClassCluster(num: Int, rank: Int, mean: Col,
+  covariance: Double Xor Mat, members: Int)
   {
-    lazy val dist =
-      MultivariateGaussian(mean, diag(Col.fill(features)(covariance)))
+    def cov = covariance valueOr (a => diag(Col.fill(rank)(a)))
+
+    lazy val dist = MultivariateGaussian(mean, cov)
   }
 
 case class ClassData(clusters: Nel[ClassCluster], data: Nel[Data])

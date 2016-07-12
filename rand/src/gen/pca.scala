@@ -25,20 +25,18 @@ object PCAGen
 extends GenBase[PCAData]
 {
   import Gen._
+  import GenBase._
 
   import genData._
-
-  def genPlane(rank: Int) = for {
-    w <- genSample(rank)
-    normal = normalize(w)
-    bias <- choose[Double](0d, sampleRange)
-    pivot <- pointInPlane(normal, bias, rank)
-  } yield Plane(normal, bias, pivot)
 
   def pca(maxFeatures: Int, members: Range) =
     for {
       rank <- choose(2, maxFeatures)
-      cluster <- genCluster(0, rank, members, Col(0d))
+      rot <- rotationMatrix(rank)
+      trans <- genSample(rank)
+      variance <- GenBase.genPosSample(rank, 1d)
+      cov = diag(variance)
+      cluster <- genCluster(0, rank, members, Col.zeros(rank), cov)
     } yield PCAData(rank, cluster)
 }
 

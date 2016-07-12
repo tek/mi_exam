@@ -34,7 +34,7 @@ extends GenBase[SVMData]
       for {
         dist <- choose(3d, 5d)
         mean = pivot + (dist * direction)
-        cluster <- genCluster(num, rank, members, mean)
+        cluster <- genUniCluster(num, rank, members, mean)
       } yield cluster
 
   def genPlane(rank: Int) = for {
@@ -57,9 +57,9 @@ extends GenBase[SVMData]
       rank <- choose(2, maxFeatures)
       plane <- genPlane(rank)
       offset = plane.pivot * sampleRange
-      oneA <- genCluster(1, rank, members, plane.pivot - offset)
-      oneB <- genCluster(1, rank, members, plane.pivot + offset)
-      two <- genCluster(-1, rank, members, plane.pivot)
+      oneA <- genUniCluster(1, rank, members, plane.pivot - offset)
+      oneB <- genUniCluster(1, rank, members, plane.pivot + offset)
+      two <- genUniCluster(-1, rank, members, plane.pivot)
     } yield SVMData(rank, plane, Nel(oneA, oneB), Nel(two))
 }
 

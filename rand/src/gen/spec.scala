@@ -48,9 +48,9 @@ with ScalaCheck
     }
   }
 
-  def mkSamplePlotting(data: RandomConf)
-  (implicit sample: Sample[Data]): SamplePlotting[Data] =
-    new SamplePlotting[Data] {
+  def mkSampleViz(data: RandomConf)
+  (implicit sample: Sample[Data]): SampleVizData[Data] =
+    new SampleVizData[Data] {
       lazy val range = (-genData.domainRange, genData.domainRange)
 
       lazy val ranges = plotCount.gen(range)

@@ -20,7 +20,7 @@ extends RBFDataInstances
     memberCount <- choose(members.min, members.max)
     mean <- genData.genSample(rank)
     covariance <- choose[Double](0.0001d, genData.domainRange)
-  } yield ClassCluster(num, rank, mean, covariance, memberCount)
+  } yield ClassCluster(num, rank, mean, covariance.left, memberCount)
 
   def rbf(maxRank: Int, maxClasses: Int, members: Range) =
     for {
