@@ -77,7 +77,7 @@ extends InternalBase
 
   lazy val data = Nel(d1, d2)
 
-  def mean = train.xm must_== Col(2.5d, 2.5d)
+  def mean = train.µ must_== Col(2.5d, 2.5d)
 
   def centered = train.centered must_== Mat(Col(-1.5d, -1.5d), Col(1.5d, 1.5d))
 
