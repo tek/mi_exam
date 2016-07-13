@@ -6,9 +6,6 @@ import fs2.util._
 import Step._
 import Stream.Handle
 
-import scalaz.std.list.{listInstance => zListInstance}
-import scalaz.syntax.zip._
-
 import cats.data.Xor._
 import cats.data.Validated._
 

@@ -2,9 +2,6 @@ package tryp
 package mi
 package mlp
 
-import scalaz.std.list.{listInstance => zListInstance}
-import scalaz.syntax.zip._
-
 import spire.math._
 import spire.algebra._
 import spire.implicits._

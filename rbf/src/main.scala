@@ -5,7 +5,6 @@ package rbf
 import simulacrum._
 
 import scalaz.std.vector.{vectorInstance => zVectorInstance}
-import scalaz.syntax.zip._
 
 import monocle.macros.Lenses
 import monocle.function._

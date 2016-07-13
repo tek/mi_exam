@@ -2,7 +2,6 @@ package tryp
 package mi
 
 import scalaz.Zip
-import scalaz.syntax.zip._
 
 import breeze.linalg.sum
 import breeze.numerics.abs
