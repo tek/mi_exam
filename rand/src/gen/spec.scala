@@ -66,7 +66,7 @@ with ScalaCheck
   def result(conf: A, classes: Nel[ClassData], data: Nel[Data])
   (implicit sample: Sample[Data]): MatchResult[_]
 
-  def createClasses(clusters: Nel[ClassCluster]): Nel[ClassData] =
+  def createClasses(clusters: Nel[ClassCluster[_]]): Nel[ClassData] =
     clusters
       .groupBy(_.num)
       .map(_.map(createClass))

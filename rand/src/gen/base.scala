@@ -26,9 +26,9 @@ object GenBase
     d <- containerOfN[Array, Double](rank, choose(0.0001d, range))
   } yield Col(d)
 
-  def createClass(conf: ClassCluster) = {
-    val data = conf.members.genNel(Data(conf.dist.draw(), conf.num))
-    ClassData(Nel(conf), data)
+  def createClass(cluster: ClassCluster[_]) = {
+    val data = cluster.gen().map(a => Data(a, cluster.num))
+    ClassData(Nel(cluster), data)
   }
 
   def genMat(rows: Int, cols: Int, range: Double) =
@@ -40,6 +40,8 @@ object GenBase
     for {
       mat <- genMat(rank, rank, 1d)
     } yield qr(mat).q
+
+  def clusters = oneAndOfN[List, ClassCluster[_]] _
 }
 
 abstract class GenBase[A: GenData]
@@ -56,13 +58,26 @@ abstract class GenBase[A: GenData]
     for {
       memberCount <- choose(members.min, members.max)
       variance <- choose[Double](0.0001d, vari)
-    } yield ClassCluster(num, rank, mean, variance.left, memberCount)
+      gen = GaussianCluster(mean, variance.left)
+    } yield ClassCluster(num, rank, gen, memberCount)
+
+  def gaussCluster(num: Int, rank: Int, mean: Col, cov: Double Xor Mat,
+    members: Int) = {
+      val gen = GaussianCluster(mean, cov)
+      ClassCluster(num, rank, gen, members)
+  }
 
   def genCluster(num: Int, rank: Int, members: Range, mean: Col, cov: Mat) =
     for {
       memberCount <- choose(members.min, members.max)
-    } yield ClassCluster(num, rank, mean,
-      (cov * vari).right, memberCount)
+    } yield gaussCluster(num, rank, mean, (cov * vari).right, memberCount)
+
+  def genRing(num: Int, rank: Int, members: Range, mean: Col) =
+    for {
+      memberCount <- choose(members.min, members.max)
+      variance <- choose[Double](0.0001d, vari)
+      gen = RingCluster(GaussianCluster(mean, variance.left))
+    } yield ClassCluster(num, rank, gen, memberCount)
 
   def pointInPlane(normal: Col, bias: Double, rank: Int) =
     for {
@@ -73,7 +88,7 @@ abstract class GenBase[A: GenData]
 trait RandomConf
 {
   def rank: Int
-  def classes: Nel[ClassCluster]
+  def classes: Nel[ClassCluster[_]]
 }
 
 @tc trait GenData[A]

@@ -15,8 +15,8 @@ import Arbitrary.arbitrary
 
 case class Plane(normal: Col, bias: Double, pivot: Col)
 
-case class SVMData(rank: Int, plane: Plane, one: Nel[ClassCluster],
-  two: Nel[ClassCluster])
+case class SVMData(rank: Int, plane: Plane, one: Nel[ClassCluster[_]],
+  two: Nel[ClassCluster[_]])
 extends RandomConf
 {
   def classes = one combine two

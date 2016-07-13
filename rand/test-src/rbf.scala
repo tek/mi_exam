@@ -15,7 +15,7 @@ with MSVSpecBase[Data, RBFs[GaussBF], Double]
 {
   import GenBase._
 
-  lazy val dataGen = RBFData.rbf(5, 5, Range(folds * 5, folds * 10))
+  lazy val dataGen = RBFGen.rbf(5, 5, Range(folds * 5, folds * 10))
 
   override val trials = Some(1)
 

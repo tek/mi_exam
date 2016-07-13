@@ -6,20 +6,12 @@ import breeze.numerics._
 import breeze.linalg._
 import functions.euclideanDistance
 
-import org.specs2.ScalaCheck
-import org.specs2.scalacheck._
-import org.scalacheck._
-import org.scalacheck.util.Buildable
-import Prop._
-import Arbitrary.arbitrary
+import org.scalacheck.Gen
 
 case class Plane(normal: Col, bias: Double, pivot: Col)
 
-case class PCAData(rank: Int, cluster: ClassCluster)
+case class PCAData(rank: Int, classes: Nel[ClassCluster[_]])
 extends RandomConf
-{
-  def classes = Nel(cluster)
-}
 
 object PCAGen
 extends GenBase[PCAData]
@@ -29,6 +21,13 @@ extends GenBase[PCAData]
 
   import genData._
 
+  def rings(maxFeatures: Int, maxClasses: Int, members: Range) =
+    for {
+      rank <- choose(2, maxFeatures)
+      count <- choose(2, maxClasses)
+      clust <- clusters(count, genRing(_, rank, members, Col.zeros(rank)))
+    } yield PCAData(rank, clust)
+
   def pca(maxFeatures: Int, members: Range) =
     for {
       rank <- choose(2, maxFeatures)
@@ -37,7 +36,7 @@ extends GenBase[PCAData]
       variance <- GenBase.genPosSample(rank, 1d)
       cov = diag(variance)
       cluster <- genCluster(0, rank, members, Col.zeros(rank), cov)
-    } yield PCAData(rank, cluster)
+    } yield PCAData(rank, Nel(cluster))
 }
 
 object PCAData

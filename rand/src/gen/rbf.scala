@@ -5,30 +5,31 @@ package rbf
 import org.scalacheck._
 import org.scalacheck.util.Buildable
 
-case class RBFData(rank: Int, classes: Nel[ClassCluster])
+case class RBFData(rank: Int, classes: Nel[ClassCluster[_]])
 extends RandomConf
 
-object RBFData
-extends RBFDataInstances
+object RBFGen
+extends GenBase[RBFData]
 {
   import Gen._
-  import GenBase.nelOfN
-
-  lazy val genData = GenData[RBFData]
+  import GenBase._
 
   def genClass(num: Int, rank: Int, members: Range) = for {
     memberCount <- choose(members.min, members.max)
     mean <- genData.genSample(rank)
     covariance <- choose[Double](0.0001d, genData.domainRange)
-  } yield ClassCluster(num, rank, mean, covariance.left, memberCount)
+  } yield gaussCluster(num, rank, mean, covariance.left, memberCount)
 
   def rbf(maxRank: Int, maxClasses: Int, members: Range) =
     for {
       rank <- choose(3, maxRank - 1)
       classCount <- choose(3, maxClasses - 1)
-      classes <- nelOfN(classCount, genClass(_, rank, members))
+      classes <- clusters(classCount, genClass(_, rank, members))
     } yield RBFData(rank, classes)
 }
+
+object RBFData
+extends RBFDataInstances
 
 trait RBFDataInstances
 {

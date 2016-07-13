@@ -12,15 +12,51 @@ extends ModelClass[Data]
   def name = s"cls $num"
 }
 
-case class ClassCluster(num: Int, rank: Int, mean: Col,
-  covariance: Double Xor Mat, members: Int)
-  {
-    def cov = covariance valueOr (a => diag(Col.fill(rank)(a)))
+@tc trait ClusterGen[A]
+{
+  def gen(a: A)(count: Int): Nel[Col]
+}
 
-    lazy val dist = MultivariateGaussian(mean, cov)
-  }
+case class GaussianCluster(mean: Col, covariance: Double Xor Mat)
+{
+  lazy val rank = mean.length
 
-case class ClassData(clusters: Nel[ClassCluster], data: Nel[Data])
+  def cov = covariance valueOr (a => diag(Col.fill(rank)(a)))
+
+  lazy val dist = MultivariateGaussian(mean, cov)
+}
+
+object GaussianCluster
+{
+  implicit lazy val instance_ClusterGen_GaussianCluster
+  : ClusterGen[GaussianCluster] =
+    new ClusterGen[GaussianCluster] {
+      def gen(a: GaussianCluster)(count: Int) = count genNel a.dist.draw()
+    }
+}
+
+case class RingCluster(gauss: GaussianCluster)
+
+object RingCluster
+{
+  import ClusterGen.ops._
+
+  implicit lazy val instance_ClusterGen_RingCluster
+  : ClusterGen[RingCluster] =
+    new ClusterGen[RingCluster] {
+      def gen(a: RingCluster)(count: Int) = a.gauss.gen(count)
+    }
+}
+
+case class ClassCluster[A: ClusterGen]
+(num: Int, rank: Int, clusterGen: A, members: Int)
+{
+  import ClusterGen.ops._
+
+  def gen() = clusterGen.gen(members)
+}
+
+case class ClassData(clusters: Nel[ClassCluster[_]], data: Nel[Data])
 {
   def conf = clusters.head
   def num = conf.num
