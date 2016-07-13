@@ -3,6 +3,12 @@ package mi
 package pca
 
 case class PCALearnConf(cost: Func2, kernel: KernelFunc)
+{
+  def cov: PCAEval = kernel match {
+    case LinearKernel => LinearEval
+    case _ => KernelEval(kernel)
+  }
+}
 
 object PCALearnConf
 {

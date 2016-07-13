@@ -7,6 +7,33 @@ import cats.data.Validated._
 import breeze.linalg._
 import breeze.numerics._
 
+trait PCAEval
+{
+  def apply(x: Mat, n: Double): Mat
+}
+
+object LinearEval
+extends PCAEval
+{
+  def apply(x: Mat, n: Double): Mat = (x.t * x) / (n - 1)
+}
+
+case class KernelEval(kernel: KernelFunc)
+extends PCAEval
+{
+  def kerneled(x: Mat) = {
+    val rank = x.rows
+    val feat = x.rowCols
+    Mat.create(rank, rank, feat.map2(feat)(kernel.apply).toArray)
+  }
+
+  def apply(x: Mat, n: Double): Mat = {
+    val k = kerneled(x)
+    val i = Mat.fill(x.rows, x.rows)(1d / n)
+    k - (i * k) - (k * i) + (i * k * i)
+  }
+}
+
 case class PCAEstimator[S: Sample]
 (data: Nel[S], config: PCALearnConf)
 extends SimpleEstimator[PCA]
@@ -19,7 +46,7 @@ extends SimpleEstimator[PCA]
 
   lazy val centered = x(*, ::) - µ
 
-  lazy val covariance = (centered.t * centered) / (n - 1)
+  lazy val covariance = config.cov(centered, n)
 
   lazy val eigen = {
     val eigSym.EigSym(l, v) = eigSym(covariance)
