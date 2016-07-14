@@ -72,11 +72,13 @@ abstract class GenBase[A: GenData]
       memberCount <- choose(members.min, members.max)
     } yield gaussCluster(num, rank, mean, (cov * vari).right, memberCount)
 
-  def genRing(num: Int, rank: Int, members: Range, mean: Col) =
+  def ringWidth = 0.5
+
+  def genRing(num: Int, rank: Int, members: Range, mean: Col, cov: Double,
+    radius: Double) =
     for {
       memberCount <- choose(members.min, members.max)
-      variance <- choose[Double](0.0001d, vari)
-      gen = RingCluster(GaussianCluster(mean, variance.left))
+      gen = RingCluster(mean, cov.left, radius, ringWidth)
     } yield ClassCluster(num, rank, gen, memberCount)
 
   def pointInPlane(normal: Col, bias: Double, rank: Int) =

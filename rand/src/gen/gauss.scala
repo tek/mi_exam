@@ -1,7 +1,10 @@
 package tryp
 package mi
 
+import scala.annotation.tailrec
+
 import breeze.linalg._
+import breeze.numerics._
 import breeze.stats.distributions.MultivariateGaussian
 
 case class Data(feature: Col, num: Int)
@@ -35,7 +38,12 @@ object GaussianCluster
     }
 }
 
-case class RingCluster(gauss: GaussianCluster)
+case class RingCluster
+(mean: Col, covariance: Double Xor Mat, radius: Double, epsilon: Double)
+{
+  lazy val gauss =
+    GaussianCluster(mean, covariance bimap (_ * radius, _ * radius))
+}
 
 object RingCluster
 {
@@ -44,7 +52,34 @@ object RingCluster
   implicit lazy val instance_ClusterGen_RingCluster
   : ClusterGen[RingCluster] =
     new ClusterGen[RingCluster] {
-      def gen(a: RingCluster)(count: Int) = a.gauss.gen(count)
+      def one(a: RingCluster) = {
+        val x = a.gauss.dist.draw()
+        val dist = abs(norm(a.mean - x) - a.radius)
+        val good = dist < a.epsilon
+        good -> x
+      }
+
+      @tailrec
+      def collect(a: RingCluster)(data: Nel[Col], count: Int): Nel[Col] = {
+        if (count == 0) data
+        else {
+          val (good, x) = one(a)
+          val next = if (good) (x :: data) else data
+          val nextCount = if (good) count - 1 else count
+          collect(a)(next, nextCount)
+        }
+      }
+
+      @tailrec
+      def init(a: RingCluster)(count: Int): Nel[Col] = {
+        val (good, x) = one(a)
+        if (good) collect(a)(Nel(x), count - 1)
+        else init(a)(count)
+      }
+
+      def gen(a: RingCluster)(count: Int) = {
+        init(a)(count)
+      }
     }
 }
 

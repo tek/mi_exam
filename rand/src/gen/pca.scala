@@ -21,11 +21,15 @@ extends GenBase[PCAData]
 
   import genData._
 
+  def ringLimit = 10d
+
   def rings(maxRank: Int, maxClasses: Int, members: Range) =
     for {
       rank <- choose(2, maxRank)
       count <- choose(2, maxClasses)
-      clust <- clusters(count, genRing(_, rank, members, Col.zeros(rank)))
+      variance <- choose[Double](0.0001d, vari)
+      clust <- clusters(count, a => genRing(a, rank, members, Col.zeros(rank),
+        variance, ringLimit * ((a + 1d) / count)))
     } yield PCAData(rank, clust)
 
   def pca(maxRank: Int, members: Range) =
