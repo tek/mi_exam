@@ -21,9 +21,13 @@ extends MultiBuild("mi_exam", deps = MiDeps)
 
   lazy val pca = "pca" << core
 
+  lazy val ica = "ica" << core
+
+  lazy val kmeans = "kmeans" << core
+
   lazy val viz = "viz" << core
 
-  lazy val unit = ("unit" << mlp << rbf << viz << svm << pca)
+  lazy val unit = ("unit" << mlp << rbf << viz << svm << pca << ica << kmeans)
     .settingsV(
       javaOptions += {
         val datadir = (baseDirectory in ThisBuild).value / "data"
@@ -31,7 +35,7 @@ extends MultiBuild("mi_exam", deps = MiDeps)
       }
     )
 
-  lazy val rand = ("rand" << rbf << svm << pca << unit)
+  lazy val rand = "rand" << unit
 
   override def consoleImports = """
   import cats._, data._, syntax.all._, std.all._
