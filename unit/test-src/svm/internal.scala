@@ -19,8 +19,8 @@ object Dat
     Two -> 1d,
   )
 
-  implicit def instance_ModelClasses_Dat: ModelClasses[Dat] =
-    new ModelClasses[Dat] {
+  implicit def instance_ModelClasses_Dat: ModelClasses[Dat, Double] =
+    new ModelClasses[Dat, Double] {
       def value(a: ModelClass[Dat]) =
         Validated.fromOption(Dat.values.get(a), s"no class for $a")
 

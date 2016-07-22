@@ -17,10 +17,6 @@ case class Plane(normal: Col, bias: Double, pivot: Col)
 
 case class SVMData(rank: Int, plane: Plane, one: Nel[ClassCluster[_]],
   two: Nel[ClassCluster[_]])
-extends RandomConf
-{
-  def classes = one combine two
-}
 
 object SVMGen
 extends GenBase[SVMData]
@@ -73,6 +69,10 @@ trait SVMDataInstances
 {
   implicit lazy val instance_GenData_SVMData: GenData[SVMData] =
     new GenData[SVMData] {
+      def rank(a: SVMData) = a.rank
+
+      def classes(a: SVMData) = a.one combine a.two
+
       def sampleRange: Double = 10d
 
       def domainRange = 10d

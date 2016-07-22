@@ -47,7 +47,7 @@ extends IrisInstances
       .flatten
   }
 
-  def loadNel(implicit mc: ModelClasses[Iris]) = {
+  def loadNel[V](implicit mc: ModelClasses[Iris, V]) = {
     val targets = all.filter(a => mc.classes.contains(a.cls))
     util.Random.shuffle(targets) match {
       case Vector(head, tail @ _*) => Nel(head, tail: _*)
@@ -58,8 +58,8 @@ extends IrisInstances
 
 trait IrisInstances
 {
-  implicit def irisSample(implicit mc: ModelClasses[Iris]): Sample[Iris] =
-    new Sample[Iris]()(mc) {
+  implicit def irisSample: Sample[Iris] =
+    new Sample[Iris] {
       import Iris._
       def cls(a: Iris) = a.cls
 
@@ -79,8 +79,8 @@ trait IrisInstances
       def projections = List((0, 1), (1, 2), (2, 3), (3, 0))
     }
 
-    implicit lazy val instance_ModelClasses_Iris: ModelClasses[Iris] =
-      new ModelClasses[Iris] {
+    implicit def instance_ModelClasses_Iris: ModelClasses[Iris, Double] =
+      new ModelClasses[Iris, Double] {
         import Iris._
         def classes = Nel(Setosa, Versicolor, Virginica)
 

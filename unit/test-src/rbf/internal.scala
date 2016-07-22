@@ -2,11 +2,6 @@ package tryp
 package mi
 package rbf
 
-import spire.math._
-import spire.algebra._
-import spire.implicits._
-import spire.random._
-
 import breeze.linalg._
 import breeze.numerics._
 import breeze.linalg.functions.euclideanDistance
@@ -34,8 +29,8 @@ object Dat
       def featureCount = 2
     }
 
-    implicit def instance_ModelClasses_Dat: ModelClasses[Dat] =
-      new ModelClasses[Dat] {
+    implicit def instance_ModelClasses_Dat: ModelClasses[Dat, Double] =
+      new ModelClasses[Dat, Double] {
         def value(a: ModelClass[Dat]) =
           Validated.fromOption(Dat.values.get(a), s"no value for $a")
 
@@ -134,7 +129,7 @@ extends InternalBase
 
   lazy val d3 = lambda * euclideanDistance(newC, c2)
 
-  lazy val updatedBf = step(bf)
+  lazy val updatedBf = step(bf).getOrElse(sys.error("no result"))
 
   def closest = kmeans.closest(x, params.bf.map(_.center))._1 must_== c3
 

@@ -3,6 +3,7 @@ package mi
 
 import breeze.plot.DomainFunction
 import breeze.linalg._
+import breeze.generic._
 
 import cats.Foldable
 
@@ -11,7 +12,7 @@ extends AnyVal
 {
   def dims = (self.rows, self.cols)
 
-  def rowCols: List[Col] = self(*, ::).toIndexedSeq.toList map (_.t)
+  def rowCols: List[Col] = self.t(::, *).toIndexedSeq.toList
 }
 
 trait ToMatOps
@@ -53,3 +54,16 @@ trait ToBreezeSeqOps
   implicit def ToBreezeSeqOps[A: ClassTag](x: Seq[A]): BreezeSeqOps[A] =
     new BreezeSeqOps(x)
 }
+
+trait IntImplToDouble
+{
+  implicit def IntImplToDouble[Tag, V, VR]
+  (implicit impl: UFunc.UImpl2[Tag, V, Double, VR])
+  : UFunc.UImpl2[Tag, V, Int, VR] =
+    new UFunc.UImpl2[Tag, V, Int, VR] {
+      def apply(v: V, v2: Int): VR = impl.apply(v, v2.toDouble)
+    }
+}
+
+object IntImplToDouble
+extends IntImplToDouble

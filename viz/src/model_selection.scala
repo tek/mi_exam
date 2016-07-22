@@ -51,9 +51,9 @@ object PlottedModelSelection
 
   val sleep = time.sleep[Task] _ andThen Pull.outputs _
 
-  def plotLoop[A, B, P, O]
+  def plotLoop[A, B, P, M]
   (plotter: Plotter[A, B, P], stepInterval: FiniteDuration)
-  : Trans[Learn[A, P, O], Unit] = {
+  : Trans[Learn[A, P, M], Unit] = {
     type P1 = P
     import Pull._
     import Learn._
@@ -80,21 +80,21 @@ object PlottedModelSelection
   }
 }
 
-case class PMSCore[A, B, P, O]
-(msv: ModelSelectionValidator[A, P, O], q: Queue[Task, Learn[A, P, O]],
+case class PMSCore[A, B, P, M, V]
+(msv: ModelSelectionValidator[A, P, M, V], q: Queue[Task, Learn[A, P, V]],
   finished: Signal[Task, Boolean], stepInterval: FiniteDuration)
 (implicit backend: Viz[B, A, P])
 {
   import PlottedModelSelection._
 
-  type M = ModelSelection[A, P, O]
-  type MSV = ModelSelectionValidation[A, P, O]
+  type MS = ModelSelection[A, P, V]
+  type MSV = ModelSelectionValidation[A, P, V]
   type Res = String ValidatedNel MSV
-  type L = Learn[A, P, O]
+  type L = Learn[A, P, V]
 
-  lazy val results: Stream[Task, String ValidatedNel M] = {
-    val em = Stream.empty[Task, String ValidatedNel M]
-    def send(t: Learn[A, P, O]) =
+  lazy val results: Stream[Task, String ValidatedNel MS] = {
+    val em = Stream.empty[Task, String ValidatedNel MS]
+    def send(t: Learn[A, P, V]) =
         Stream.eval(q.enqueue1(t)).flatMap(_ => em)
     msv.unified.flatMap {
       case Valid(l @ Learn.Fold(train, test)) => send(l)
@@ -109,7 +109,7 @@ case class PMSCore[A, B, P, O]
     ModelSelectionValidator.validation(msv, results)
 
   def plotStream: fs2.Stream[Task, Unit] = {
-    val s = Stream.emit(Learn.Go[A, P, O]()) ++ q.dequeue
+    val s = Stream.emit(Learn.Go[A, P, V]()) ++ q.dequeue
     finished.interrupt(s.pull(plotLoop(Plotter.empty[A, B, P], stepInterval)))
   }
 
@@ -138,17 +138,17 @@ case class PMSCore[A, B, P, O]
       .pull(waitForCompletion(SLeft[Unit, Res](())))
 }
 
-case class PlottedModelSelection[A, B, P, O]
-(msv: ModelSelectionValidator[A, P, O],
+case class PlottedModelSelection[S, B, P, M, V]
+(msv: ModelSelectionValidator[S, P, M, V],
   stepInterval: FiniteDuration = 100.millis)
-(implicit backend: Viz[B, A, P])
+(implicit backend: Viz[B, S, P])
 {
   import PlottedModelSelection._
 
-  type MSV = ModelSelectionValidation[A, P, O]
+  type MSV = ModelSelectionValidation[S, P, V]
   type Res = String ValidatedNel MSV
 
-  def queue = async.unboundedQueue[Task, Learn[A, P, O]]
+  def queue = async.unboundedQueue[Task, Learn[S, P, V]]
 
   def finished = async.signalOf[Task, Boolean](false)
 

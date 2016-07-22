@@ -26,7 +26,8 @@ case class SVM(normal: Col, offset: Double, support: List[Col], cy: Col)
 object SVM
 {
   def msv[S: Sample]
-  (data: Nel[S], conf: SVMLearnConf, sconf: ModelSelectionConf) = {
+  (data: Nel[S], conf: SVMLearnConf, sconf: ModelSelectionConf)
+  (implicit mc: MC[S]) = {
     lazy val validator = CrossValidator[S, SVM, SVM, Double](data,
       sconf, SVMEstimator[S](_, conf), _ => IdModelCreator[SVM](),
       SVMValidator[S](_, conf))

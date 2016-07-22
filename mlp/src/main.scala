@@ -12,7 +12,7 @@ import breeze.numerics.abs
 
 case class LayerState(in: Col, out: Col)
 
-case class MLP(layers: Nel[LayerState])
+case class Layers(layers: Nel[LayerState])
 {
   def addLayer(in: Col, out: Col) =
     copy(layers.combine(Nel(LayerState(in, out))))
@@ -24,12 +24,26 @@ case class MLP(layers: Nel[LayerState])
   def output = layers.last.out(0)
 
   def value = output
+
+  def last = layers.last
+}
+
+case class MLP(weights: Weights, layers: Layers)
+{
+  def addLayer(in: Col, out: Col) =
+    copy(layers = layers.addLayer(in, out))
+
+  def in = layers.in
+
+  def out = layers.out
+
+  def output = layers.output
 }
 
 object MLP
 {
   def init[T <: Func](out: Col, tfDeriv: T, weights: Weights) = {
-    MLP(Nel(LayerState(tfDeriv.f(out), out)))
+    MLP(weights, Layers(Nel(LayerState(tfDeriv.f(out), out))))
   }
 
   implicit def instance_ModelState_MLP: ModelState[MLP] =
@@ -46,11 +60,13 @@ object MLP
     }
 
   def msv[S: Sample]
-  (data: Nel[S], conf: MLPLearnConf, sconf: ModelSelectionConf) = {
-    val stop = ConvergenceStopCriterion[Weights](sconf.steps, sconf.epsilon)
-    lazy val validator = CrossValidator[S, Weights, Weights, MLP](data, sconf,
-      MLPEstimator[S](_, conf, stop), _ => IdModelCreator(),
-      MLPValidator[S](_, conf))
+  (data: Nel[S], conf: MLPLearnConf, sconf: ModelSelectionConf)
+  (implicit mc: MC[S]) = {
+    val stop = ParamDiffStopCriterion[Weights](sconf.steps, sconf.epsilon)
+    lazy val validator =
+      CrossValidator[S, Weights, MLP, Double](data, sconf,
+        MLPEstimator[S](_, conf, stop), _ => MLPModelCreator(conf),
+        MLPValidator[S](_, conf))
     MLPModelSelectionValidator(validator, conf.cost)
   }
 }
@@ -112,10 +128,19 @@ object MLPLearnConf
       MLPLearnConf(transfer, eta, layers, initializer, cost, bias, mode)
 }
 
+case class MLPModelCreator(config: MLPLearnConf)
+extends ModelCreator[Weights, MLP]
+{
+  def run(est: Est[Weights]): MLP =
+    MLP.init(Col(0), config.transfer.deriv, est.params)
+}
+
 case class MLPPredictor(config: MLPLearnConf)
-extends Predictor[Weights, MLP]
+extends Predictor[Weights, MLP, Double]
 {
   def transfer = config.transfer
+
+  lazy val creator = MLPModelCreator(config)
 
   def input[S: Sample](sample: S) = {
     if (config.bias) Col.vertcat(Col(1d), sample.feature)
@@ -129,22 +154,23 @@ extends Predictor[Weights, MLP]
   }
 
   def apply[S: Sample](sample: S, weights: Weights)
-  : Prediction[S, Weights, MLP] = {
+  (implicit mc: MC[S])
+  : Prediction[S, MLP, Double] = {
     val z = MLP.init(input(sample), transfer.deriv, weights)
     val pred = weights.foldLeft(z)(layer)
-    Prediction(sample, weights, pred, Sample[S].predictedClass(pred.output))
+    Prediction(sample, pred, pred.output, mc.predictedClass(pred.output))
   }
 }
 
 case class BackProp
 (transfer: DFunc[_ <: Func], cost: DFunc2[_ <: Func2])
-extends Optimizer[Weights, MLP]
+extends Optimizer[Weights, MLP, Double]
 {
   lazy val deriv = transfer.deriv
 
-  def backprop(state: MLP, weights: Weights): Layers = {
-    val hPrime = state.in.map(deriv.f(_)).reverse
-    weights
+  def backprop(state: MLP): Nel[Col] = {
+    val hPrime = state.layers.in.map(deriv.f(_)).reverse
+    state.weights
       .toList
       .reverse
       .zip(hPrime.tail)
@@ -155,15 +181,17 @@ extends Optimizer[Weights, MLP]
       }
   }
 
-  def modelGradient(state: MLP, deltas: Layers): Weights = {
+  def modelGradient(state: MLP, deltas: Nel[Col]): Weights = {
     deltas
-      .fzip(state.out)
+      .fzip(state.layers.out)
       .map { case (a, b) => a * b.t }
   }
 
-  def apply[S: Sample](pred: Prediction[S, Weights, MLP]): Weights = {
-    val state = pred.value
-    val back = backprop(state, pred.model)
+  def apply[S: Sample](pred: Prediction[S, MLP, Double])
+  (implicit mc: MC[S]): Weights = {
+    val state = pred.model
+    val weights = state.weights
+    val back = backprop(state)
     val mg = modelGradient(state, back)
     val ce = cost.deriv.f(pred.sample.valueOrNaN, state.output)
     mg.map(_ * ce)
@@ -186,30 +214,37 @@ extends EstimationStep[Weights]
 
 // TODO parallel computing
 case class BatchStep[S: Sample](data: Nel[S], config: MLPLearnConf)
+(implicit mc: MC[S])
 extends MLPStep
 {
-  def apply(weights: Weights): Weights = {
+  def apply(weights: Weights): I = {
     val optimized = data map(a => optimize(predict(a, weights)))
-    optimized.foldLeft(weights) { (z, pred) =>
-      z.fzipWith(pred) { (a, b) => a :- (b * eta) }
-    }
+    optimized
+      .foldLeft(weights) { (z, pred) =>
+        z.fzipWith(pred) { (a, b) => a :- (b * eta) }
+      }
+      .validNel[String]
   }
 }
 
 case class OnlineStep[S: Sample](data: Nel[S], config: MLPLearnConf)
+(implicit mc: MC[S])
 extends MLPStep
 {
-  def apply(weights: Weights): Weights = {
-    data.foldLeft(weights) { (z, sample) =>
-      val o = optimize(predict(sample, z))
-      z.fzipWith(o) { (a, b) => a :- (b * eta) }
-    }
+  def apply(weights: Weights): I = {
+    data
+      .foldLeft(weights) { (z, sample) =>
+        val o = optimize(predict(sample, z))
+        z.fzipWith(o) { (a, b) => a :- (b * eta) }
+      }
+      .validNel[String]
   }
 }
 
 case class MLPEstimator[S: Sample]
 (data: Nel[S], config: MLPLearnConf, stop: StopCriterion[Weights])
-extends IterativeEstimator[Weights]
+(implicit mc: MC[S])
+extends UniformIterativeEstimator[Weights]
 {
   lazy val initialParams = config.initialParams(Sample[S].featureCount)
 
@@ -220,32 +255,34 @@ extends IterativeEstimator[Weights]
 }
 
 case class MLPSV[S: Sample](data: S, state: MLP)
-extends SampleValidation[S, MLP]
+(implicit mc: MC[S])
+extends SampleValidation[S, Double]
 {
   def output = state.output
 
-  lazy val predictedClass = Sample[S].predictedClass(output)
+  override lazy val predictedClass = mc.predictedClass(output)
 
-  def error(cost: Func2) = data.value map (cost.f(_, output))
+  def error(cost: Func2) = data.value.map(cost.f(_, output)).toValidatedNel
 }
 
 case class MLPValidator[S: Sample]
 (data: Nel[S], config: MLPLearnConf)
-extends Validator[S, Weights, MLP]
+(implicit mc: MC[S])
+extends Validator[S, MLP, Double]
 {
   lazy val predict = MLPPredictor(config)
 
-  def verify(weights: Weights)(sample: S): SampleValidation[S, MLP] = {
-    val pred = predict(sample, weights)
-    MLPSV(sample, pred.value)
+  def verify(model: MLP)(sample: S): SampleValidation[S, Double] = {
+    val pred = predict(sample, model.weights)
+    MLPSV(sample, pred.model)
   }
 
-  def run(weights: Weights) = {
-    val pred = data map(verify(weights))
+  def run(model: MLP) = {
+    val pred = data map(verify(model))
     Validation(pred)
   }
 }
 
 case class MLPModelSelectionValidator[S]
-(cross: CrossValidator[S, Weights, Weights, MLP], cost: Func2)
-extends ModelSelectionValidator[S, Weights, MLP]
+(cross: CrossValidator[S, Weights, MLP, Double], cost: Func2)
+extends ModelSelectionValidator[S, Weights, Weights, Double]

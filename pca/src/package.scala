@@ -1,11 +1,11 @@
 package tryp
 package mi
-package rbf
+package pca
 
-trait RBFTypes
+trait PCATypes
 {
   type MC[S] = ModelClasses[S, Double]
 }
 
 object `package`
-extends RBFTypes
+extends PCATypes

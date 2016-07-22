@@ -1,17 +1,16 @@
 package tryp
 package mi
 
-abstract class SampleValidation[S: Sample, O]
+abstract class SampleValidation[S: Sample, V]
+(implicit val mc: ModelClasses[S, V])
 {
   val data: S
 
-  def state: O
+  def output: V
 
-  def output: Double
+  lazy val predictedClass: ModelClass[S] = mc.predictedClass(output)
 
-  def predictedClass: ModelClass[S]
-
-  def error(cost: Func2): ValiDouble
+  def error(cost: Func2): Vali[Double]
 
   def actualClass = data.cls
 
@@ -19,21 +18,28 @@ abstract class SampleValidation[S: Sample, O]
 
   def successInfo = {
     if (success) s"correct class"
-    else f"wrong class: $predictedClass ($output%g)"
+    else f"wrong class: $predictedClass ($output)"
   }
 
   def info =
     s"${actualClass} (${data.feature.data.mkString(", ")}): $successInfo"
 }
 
-case class SV[S: Sample](data: S, state: Double)
+case class DSV[S: Sample](data: S, output: Double)
+(implicit mc: ModelClasses[S, Double])
 extends SampleValidation[S, Double]
 {
-  def output = state
+  def error(cost: Func2) = data.value.map(cost.f(_, output)).toValidatedNel
+}
 
-  lazy val predictedClass = Sample[S].predictedClass(output)
-
-  def error(cost: Func2) = data.value map (cost.f(_, output))
+case class ColSV[S: Sample](data: S, output: Col)
+(implicit mc: ModelClasses[S, Col])
+extends SampleValidation[S, Col]
+{
+  def error(cost: Func2) = {
+    ???
+    // data.value map (cost.f[Col](_, output)) map (_.sum)
+  }
 }
 
 case class EstimationStats(successes: Int, errors: Nel[Double])
@@ -45,17 +51,17 @@ case class EstimationStats(successes: Int, errors: Nel[Double])
   def count = errors.length
 }
 
-case class Validation[S, O](data: Nel[SampleValidation[S, O]])
+case class Validation[S, V](data: Nel[SampleValidation[S, V]])
 {
-  def stats(cost: Func2) = {
-    data.traverseU(_.error(cost).toValidatedNel)
+  def stats(cost: Func2): Vali[EstimationStats] = {
+    data.traverseU(_.error(cost))
       .map(EstimationStats(data.filter(_.success).length, _))
   }
 }
 
-abstract class Validator[S: Sample, P, O]
+abstract class Validator[S: Sample, M, V]
 {
   val data: Nel[S]
 
-  def run(weights: P): Validation[S, O]
+  def run(weights: M): Validation[S, V]
 }

@@ -6,7 +6,6 @@ import org.scalacheck._
 import org.scalacheck.util.Buildable
 
 case class RBFData(rank: Int, classes: Nel[ClassCluster[_]])
-extends RandomConf
 
 object RBFGen
 extends GenBase[RBFData]
@@ -35,6 +34,10 @@ trait RBFDataInstances
 {
   implicit lazy val instance_GenData_RBFData: GenData[RBFData] =
     new GenData[RBFData] {
+      def rank(a: RBFData) = a.rank
+
+      def classes(a: RBFData) = a.classes
+
       def sampleRange: Double = 10d
 
       def domainRange = 10d

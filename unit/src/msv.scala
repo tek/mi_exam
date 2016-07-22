@@ -1,10 +1,10 @@
 package tryp
 package mi
 
-trait MSVSpecBase[S, P, O]
+trait MSVSpecBase[S, P, M, V]
 extends Spec
 {
-  type MSV = ModelSelectionValidator[S, P, O]
+  type MSV = ModelSelectionValidator[S, P, M, V]
 
   def msvError(msv: MSV) = {
     msv.validation.map { _.map { v =>
@@ -29,8 +29,8 @@ extends Spec
   )
 }
 
-trait MSVSpec[S, P, O]
-extends MSVSpecBase[S, P, O]
+trait MSVSpec[S, P, M, V]
+extends MSVSpecBase[S, P, M, V]
 {
   def is = s2"""
   $title

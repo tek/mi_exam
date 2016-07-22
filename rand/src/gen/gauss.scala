@@ -83,8 +83,10 @@ object RingCluster
     }
 }
 
+case class StrictCluster()
+
 case class ClassCluster[A: ClusterGen]
-(num: Int, rank: Int, clusterGen: A, members: Int)
+(num: Int, rank: Int, mean: Col, clusterGen: A, members: Int)
 {
   import ClusterGen.ops._
 

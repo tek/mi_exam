@@ -26,6 +26,8 @@ with cats.std.AllInstances
 with Fu.ToFuOps
 with Fu2.ToFu2Ops
 with Sample.ToSampleOps
+with ModelClasses.ToModelClassesOps
+with ModelValue.ToModelValueOps
 with monocle.function.NonEmptyVectorIndexLens
 with ToMatOps
 with ToBreezeFoldableOps
@@ -37,5 +39,3 @@ with ToXorStreamOps
 with ToListStreamOps
 with TaskInstances
 with BreezeInstances
-{
-}

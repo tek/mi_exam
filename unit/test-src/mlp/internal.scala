@@ -8,8 +8,8 @@ object Dat
 {
   object Cls extends AutoClass[Dat]
 
-  implicit def instance_ModelClasses_Dat: ModelClasses[Dat] =
-    new ModelClasses[Dat] {
+  implicit def instance_ModelClasses_Dat: ModelClasses[Dat, Double] =
+    new ModelClasses[Dat, Double] {
       def value(a: ModelClass[Dat]) = 1.0.valid
 
       lazy val classes = Nel(Cls: ModelClass[Dat])
@@ -48,9 +48,9 @@ extends Spec
 
   def optimizer = train.step.optimize
 
-  def forward = pred.value
+  def forward = pred.model
 
-  lazy val backward = optimizer.backprop(forward, pred.model)
+  lazy val backward = optimizer.backprop(forward)
 
   lazy val grad = optimizer.modelGradient(forward, backward)
 
@@ -120,7 +120,7 @@ extends InternalBase
   }
 
   def result = {
-    val r = train.step(initW)
+    val r = train.step(initW).getOrElse(sys.error("no result"))
     val d1 = h1_0 * h1_0 * f1
     r.head(0, 0) must beCloseTo((w0_00 - (eta * d1 * error)), 0.001)
   }

@@ -89,17 +89,18 @@ object RBFLearnConf
 }
 
 case class RBFPredictor[P: BasisFunction](config: RBFLearnConf[P])
-extends Predictor[RBFNet[P], Double]
+extends Predictor[RBFNet[P], RBFNet[P], Double]
 {
   def rbfOut(data: Col, bf: Nev[P]): Nev[Double] = {
     bf.map(_.output(data))
   }
 
   def apply[S: Sample](sample: S, model: RBFNet[P])
+  (implicit mc: MC[S])
   : Prediction[S, RBFNet[P], Double] = {
     val r = Col(rbfOut(sample.feature, model.bf).unwrap.toArray)
     val pred = model.weights.t * r
-    Prediction(sample, model, pred, Sample[S].predictedClass(pred))
+    Prediction(sample, model, pred, mc.predictedClass(pred))
   }
 }
 
@@ -147,14 +148,14 @@ case class KMeansStep[S: Sample, P: BasisFunction: UpdateParams]
 (data: Nel[Col], config: RBFLearnConf[P])
 extends EstimationStep[RBFs[P]]
 {
-  def apply(params: RBFs[P]): RBFs[P] = {
-    KMeans(data, config, params).updateBf
+  def apply(params: RBFs[P]): I = {
+    KMeans(data, config, params).updateBf.validNel[String]
   }
 }
 
 case class RBFEstimator[S: Sample, P: BasisFunction: Initializer: UpdateParams]
 (data: Nel[S], config: RBFLearnConf[P], stop: StopCriterion[RBFs[P]])
-extends IterativeEstimator[RBFs[P]]
+extends UniformIterativeEstimator[RBFs[P]]
 {
   lazy val initialParams = config.initialParams(Sample[S].featureCount)
 
@@ -163,6 +164,7 @@ extends IterativeEstimator[RBFs[P]]
 
 case class RBFModelCreator[S: Sample, P: BasisFunction]
 (data: Nel[S], config: RBFLearnConf[P])
+(implicit mc: MC[S])
 extends ModelCreator[RBFs[P], RBFNet[P]]
 {
   lazy val predict = RBFPredictor[P](config)
@@ -188,13 +190,15 @@ extends ModelCreator[RBFs[P], RBFNet[P]]
 
 case class RBFValidator[S: Sample, P: BasisFunction]
 (data: Nel[S], config: RBFLearnConf[P])
+(implicit mc: MC[S])
 extends Validator[S, RBFNet[P], Double]
 {
   lazy val predict = RBFPredictor[P](config)
 
-  def verify(model: RBFNet[P])(sample: S): SampleValidation[S, Double] = {
+  def verify(model: RBFNet[P])(sample: S): SampleValidation[S, Double] =
+  {
     val pred = predict(sample, model)
-    SV(sample, pred.value)
+    DSV(sample, pred.value)
   }
 
   def run(model: RBFNet[P]) = {
@@ -205,16 +209,19 @@ extends Validator[S, RBFNet[P], Double]
 
 case class RBFModelSelectionValidator[S, P]
 (cross: CrossValidator[S, RBFs[P], RBFNet[P], Double], cost: Func2)
-extends ModelSelectionValidator[S, RBFs[P], Double]
+extends ModelSelectionValidator[S, RBFs[P], RBFs[P], Double]
 
 object RBF
 {
   def msv[S: Sample, P: BasisFunction: Initializer: UpdateParams]
-  (data: Nel[S], conf: RBFLearnConf[P], sconf: ModelSelectionConf) = {
-    val stop = ConvergenceStopCriterion[RBFs[P]](sconf.steps, sconf.epsilon)
-    lazy val validator = CrossValidator[S, RBFs[P], RBFNet[P], Double](data,
-      sconf, RBFEstimator[S, P](_, conf, stop), RBFModelCreator[S, P](_, conf),
-      RBFValidator[S, P](_, conf))
+  (data: Nel[S], conf: RBFLearnConf[P], sconf: ModelSelectionConf)
+  (implicit mc: MC[S])
+  = {
+    val stop = ParamDiffStopCriterion[RBFs[P]](sconf.steps, sconf.epsilon)
+    lazy val validator =
+      CrossValidator[S, RBFs[P], RBFNet[P], Double](data,
+        sconf, RBFEstimator[S, P](_, conf, stop),
+        RBFModelCreator[S, P](_, conf), RBFValidator[S, P](_, conf))
     RBFModelSelectionValidator(validator, conf.cost)
   }
 }

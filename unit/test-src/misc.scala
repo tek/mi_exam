@@ -4,16 +4,14 @@ package mi
 import fs2._
 import fs2.util._
 
-import breeze.math._
-import breeze.linalg._
-import breeze.numerics._
-import breeze.linalg.functions.euclideanDistance
-import breeze.plot._
-import breeze.optimize.proximal.QuadraticMinimizer
-import breeze.optimize.proximal.Constraint
-import breeze.optimize.proximal.ProjectPos
-import breeze.optimize.proximal.ProjectBox
-import breeze.generic.{UFunc, MappingUFunc}
+import breeze._
+import math._
+import linalg._
+import numerics._
+import linalg.functions._
+import optimize.proximal._
+import generic._
+import stats._
 
 import org.scalacheck.Gen
 
@@ -36,8 +34,16 @@ extends Spec
   """
 
   def test = {
-    val k = Kern(3d)
-    k(Col(1d, 1d), Col(0d, 2d))
+    val m = Mat((0.5d, 0.5d), (1d, 1d), (-1d, -1d), (2d, 2d), (5d, 3d))
+    val c = mean(m)
+    val cluster = m.rowCols.map(_ - c)
+    p(m(*, ::) - Col(1d, 1d))
+    p(cluster)
+    val v1 = variance(m)
+    val v2 = cluster.map(a => a dot a).sum
+    p(v1)
+    p(scala.math.sqrt(cluster.map(norm(_)).sum))
+    p(v2 / (m.data.length - 1))
     1 === 1
   }
 }

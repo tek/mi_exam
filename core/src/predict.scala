@@ -4,7 +4,9 @@ package mi
 case class Prediction[S, M, V](sample: S, model: M, value: V,
   cls: ModelClass[S])
 
-trait Predictor[M, V]
+trait Predictor[P, M, V]
 {
-  def apply[S: Sample](sample: S, model: M): Prediction[S, M, V]
+  def apply[S: Sample](sample: S, model: P)
+  (implicit mc: ModelClasses[S, V])
+  : Prediction[S, M, V]
 }

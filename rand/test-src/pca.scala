@@ -8,20 +8,16 @@ import org.specs2.matcher.MatchResult
 import viz.Shape
 
 trait PCARandomSpecBase
-extends Check[PCAData]
-with MSVSpecBase[Data, PCA, Double]
+extends MSVCheck[PCAData, PCA, PCA, Double]
 {
   val kernel: KernelFunc = LinearKernel
 
-  def trainPca(classData: PCAData, msv: MSV, margin: Double)
-  (implicit sample: Sample[Data]): MatchResult[_]
+  def margin(sd: PCAData) = 0.2 * sd.rank
 
-  def result(classData: PCAData, classes: Nel[ClassData], data: Nel[Data])
-  (implicit sample: Sample[Data]) = {
+  def msv(classes: Nel[ClassData], data: Nel[Data])
+  (implicit mc: MC[Data], sample: Sample[Data]) = {
     val lconf = PCALearnConf.default(kernel = kernel)
-    val msv = PCA.msv(data.shuffle, lconf, sconf)
-    val margin = 0.2d * classData.rank * (trials | data.length)
-    trainPca(classData, msv, margin)
+    PCA.msv(data.shuffle, lconf, sconf)
   }
 }
 
@@ -48,7 +44,7 @@ extends LinearRandomSpec
 }
 
 class PlottedRandomSpec
-extends PlottedCheck[PCAData, Data, PCA, Double]
+extends PlottedCheck[PCAData, PCA, PCA, Double]
 with PCARandomSpecBase
 {
   override def estimationShape: Shape = Shape.Line
@@ -60,10 +56,4 @@ with PCARandomSpecBase
   def lambda = 0.00005d
 
   lazy val dataGen = PCAGen.pca(10, Range(folds * 5, folds * 10))
-
-  def trainPca(classData: PCAData, msv: MSV, margin: Double)
-  (implicit sample: Sample[Data]) = {
-    implicit val sp = mkSampleViz(classData)
-    trainPms(mkPms(msv), margin)
-  }
 }

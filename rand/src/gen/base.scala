@@ -26,11 +26,6 @@ object GenBase
     d <- containerOfN[Array, Double](rank, choose(0.0001d, range))
   } yield Col(d)
 
-  def createClass(cluster: ClassCluster[_]) = {
-    val data = cluster.gen().map(a => Data(a, cluster.num))
-    ClassData(Nel(cluster), data)
-  }
-
   def genMat(rows: Int, cols: Int, range: Double) =
     for {
       d <- containerOfN[Array, Double](rows * cols, choose(-range, range))
@@ -59,12 +54,12 @@ abstract class GenBase[A: GenData]
       memberCount <- choose(members.min, members.max)
       variance <- choose[Double](0.0001d, vari)
       gen = GaussianCluster(mean, variance.left)
-    } yield ClassCluster(num, rank, gen, memberCount)
+    } yield ClassCluster(num, rank, mean, gen, memberCount)
 
   def gaussCluster(num: Int, rank: Int, mean: Col, cov: Double Xor Mat,
     members: Int) = {
       val gen = GaussianCluster(mean, cov)
-      ClassCluster(num, rank, gen, members)
+      ClassCluster(num, rank, mean, gen, members)
   }
 
   def genCluster(num: Int, rank: Int, members: Range, mean: Col, cov: Mat) =
@@ -79,7 +74,7 @@ abstract class GenBase[A: GenData]
     for {
       memberCount <- choose(members.min, members.max)
       gen = RingCluster(mean, cov.left, radius, ringWidth)
-    } yield ClassCluster(num, rank, gen, memberCount)
+    } yield ClassCluster(num, rank, mean, gen, memberCount)
 
   def pointInPlane(normal: Col, bias: Double, rank: Int) =
     for {
@@ -87,17 +82,28 @@ abstract class GenBase[A: GenData]
     } yield l * (bias / (normal dot l))
 }
 
-trait RandomConf
-{
-  def rank: Int
-  def classes: Nel[ClassCluster[_]]
-}
-
 @tc trait GenData[A]
 {
+  def rank(a: A): Int
+
+  def classes(a: A): Nel[ClassCluster[_]]
+
   def sampleRange: Double
 
   def domainRange: Double
 
   def genSample(rank: Int) = GenBase.genSample(rank, sampleRange)
+
+  def createCluster(cluster: ClassCluster[_]) = {
+    val data = cluster.gen().map(a => Data(a, cluster.num))
+    ClassData(Nel(cluster), data)
+  }
+
+  def createClass(cls: Nel[ClassCluster[_]]) = {
+    cls map createCluster reduceLeft ((a, b) =>
+        ClassData(a.clusters.combine(b.clusters), a.data.combine(b.data)))
+  }
+
+  def createClasses(classes: Nel[Nel[ClassCluster[_]]]) =
+    classes map createClass
 }

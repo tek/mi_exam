@@ -31,25 +31,25 @@ import BasisFunction.ops._
   def output(p: P)(input: Col): Double
 }
 
-@typeclass abstract class Initializer[P: BasisFunction]
+@typeclass abstract class Initializer[P]
 extends AnyRef
 {
   def init[S: Sample](features: Int, rbfs: Int): RBFs[P]
 }
 
-abstract class Initialization[P: Initializer: BasisFunction]
+abstract class Initialization[P]
 {
   def create(features: Int, rbfs: Int): RBFs[P]
 }
 
-class RandomInitialization[P: Initializer: BasisFunction, S: Sample]
+class RandomInitialization[P: Initializer, S: Sample]
 extends Initialization[P]
 {
   def create(features: Int, rbfs: Int) =
     Initializer[P].init[S](features, rbfs)
 }
 
-class ManualInitialization[P: Initializer: BasisFunction]
+class ManualInitialization[P: Initializer]
 (manual: RBFs[P])
 extends Initialization[P]
 {

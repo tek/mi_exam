@@ -17,12 +17,13 @@ abstract class Viz[A, S, P]
   def estimationPlot(data: P): Nel[Dataset]
 }
 
-@tc abstract class SampleVizData[A: Sample]
+@tc abstract class SampleVizData[S: Sample]
+(implicit val mc: ModelClassesBase[S])
 extends AnyRef
 {
   type Range = (Double, Double)
 
-  def sample = Sample[A]
+  implicit lazy val sample = Sample[S]
 
   def ranges: List[Range]
   def plotCount: Int
@@ -33,11 +34,13 @@ extends AnyRef
       case (x, y) => ranges(x) -> ranges(y)
     }
 
-  def plots(data: List[Col], size: Array[Double]): List[Array[Array[Double]]] =
+  def plots(data: List[Col], size: Option[Array[Double]])
+  : List[Tuple3[Array[Double], Array[Double], Array[Double]]] =
   {
+    val sz = data.length.gen(1d).toArray
     projections map {
       case (a, b) =>
-        Array(data.map(_(a)).toArray, data.map(_(b)).toArray, size)
+        (data.map(_(a)).toArray, data.map(_(b)).toArray, sz)
     }
   }
 }

@@ -1,11 +1,11 @@
 package tryp
 package mi
-package rbf
+package svm
 
-trait RBFTypes
+trait SVMTypes
 {
   type MC[S] = ModelClasses[S, Double]
 }
 
 object `package`
-extends RBFTypes
+extends SVMTypes

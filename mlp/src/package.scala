@@ -4,7 +4,7 @@ package mlp
 
 trait MLPTypes
 {
-  type Layers = Nel[Col]
+  type MC[S] = ModelClasses[S, Double]
 }
 
 object `package`

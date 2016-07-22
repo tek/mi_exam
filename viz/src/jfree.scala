@@ -44,12 +44,13 @@ extends JFreeInstances
 
   val sampleShape = new Ellipse2D.Double(-4.0, -4.0, 8.0, 8.0)
 
+  lazy val classes = sampleData.mc.classes.toList
+
   lazy val sampleRenderer = {
     val r = new XYLineAndShapeRenderer(false, true)
     r.setBaseOutlinePaint(outlineColor)
     r.setUseOutlinePaint(true)
     r.setUseFillPaint(true)
-    val classes = sample.classes.toList
     classes.zipWithIndex foreach {
       case (c, i) =>
         r.setSeriesShape(i, sampleShape)
@@ -62,7 +63,7 @@ extends JFreeInstances
   }
 
   def train(data: List[A]) =
-    sample.classes.unwrap.zipWithIndex
+    classes.zipWithIndex
       .map { case (c, i) =>
         c.name -> data.filter(_.cls == c).map(_.feature)
       }
@@ -88,23 +89,14 @@ object JSample
   def estimation(params: P) = ParamVizData[P].estimationPlot(params)
 }
 
-final class JFreeViz
-[S: JSample, P: JParam]
-(implicit fconf: FigureConf)
-extends Viz[JFree, S, P]
-with Logging
+object JFreeViz
 {
-  type Coords = List[(Double, Double)]
-
-  implicit def strat = Strategy.sequential
-
-  lazy val jsam = JSample[S]
-
-  import jsam._
-
-  def jparam = JParam[P]
-
-  def data(xrange: (Double, Double), yrange: (Double, Double)) = {
+  /* NOTE setting the axis ranges will be undone by the XYChart constructor,
+   * hence it has to happen afterwards.
+   */
+  def data(xrange: (Double, Double), yrange: (Double, Double),
+    sampleRenderer: AbstractXYItemRenderer,
+    estimationRenderer: AbstractXYItemRenderer) = {
     val samples = new DefaultXYZDataset
     val estimation = new DefaultXYZDataset
     val ax = new NumberAxis
@@ -120,14 +112,38 @@ with Logging
     plot.setDataset(0, samples)
     plot.setDataset(1, estimation)
     plot.setRenderer(0, sampleRenderer)
-    plot.setRenderer(1, jparam.estimationRenderer)
+    plot.setRenderer(1, estimationRenderer)
     plot.setBackgroundPaint(Color.white)
     JFreeData(chart, samples, estimation)
   }
+}
+
+final class JFreeViz
+[S: JSample, P: JParam]
+(implicit fconf: FigureConf)
+extends Viz[JFree, S, P]
+with Logging
+{
+  import shapeless._
+  import syntax.std.tuple._
+
+  import JFreeViz._
+
+  type Coords = List[(Double, Double)]
+
+  implicit def strat = Strategy.sequential
+
+  lazy val jsam = JSample[S]
+
+  import jsam._
+
+  def jparam = JParam[P]
 
   def init = {
     val d = sampleData.projectionRanges
-      .map { case (x, y) => data(x, y) }
+      .map { case (x, y) =>
+        data(x, y, sampleRenderer, jparam.estimationRenderer)
+      }
     val rows = Math.ceil(Math.sqrt(sampleData.plotCount)).toInt
     val figure = new Figure(fconf.copy(rows = rows), d.map(_.chart))
     JFree(figure, d)
@@ -165,12 +181,12 @@ with Logging
   private[this] def update(a: JFree)
   (dataset: JFreeData => DefaultXYZDataset, name: String, data: List[Col],
     size: Array[Double]) = {
-      val plots = sampleData.plots(data, size)
+      val plots = sampleData.plots(data, size.some)
       a.data
         .zip(plots)
         .map {
           case (jdata, plot) =>
-            Task(dataset(jdata).addSeries(name, plot))
+            Task(dataset(jdata).addSeries(name, plot.toArray))
         }
         .sequence_
     }
@@ -178,9 +194,62 @@ with Logging
   def dataSize = 0.05d
 }
 
+class JFreeSimpleViz[S: SampleVizData]
+(implicit fconf: FigureConf)
+{
+  import shapeless._
+  import syntax.std.tuple._
+
+  import JFreeViz._
+
+  implicit def strat = Strategy.sequential
+
+  lazy val renderer = new XYLineAndShapeRenderer(true, false)
+
+  lazy val sampleData = SampleVizData[S]
+
+  import sampleData._
+
+  def plotSet =
+    sampleData.projectionRanges
+      .map { case (x, y) => data(x, y, renderer, renderer) }
+
+  def init = {
+    val d = plotSet ++ plotSet
+    val figure = new Figure(fconf.copy(rows = 2), d.map(_.chart))
+    JFree(figure, d)
+  }
+
+  def setup(a: JFree): Task[Unit] = {
+    Task(a.figure.show())
+  }
+
+  def samples(a: JFree)(data: List[S]) =
+    update(a)(_.samples, 0, 3, "samples", data)
+
+  def estimation(a: JFree)(data: List[S]) =
+    update(a)(_.estimation, 3, 6, "estimation", data)
+
+  def update(a: JFree)(dataset: JFreeData => DefaultXYZDataset, from: Int,
+    to: Int, name: String, data: List[S]) = {
+    val cols = data map (_.feature)
+    val plots = sampleData.plots(cols, None)
+    a.data.slice(from, to).zip(plots).zipWithIndex
+      .map {
+        case ((d, plot), i) =>
+          Task(dataset(d).addSeries(s"$name $i", plot.toArray))
+      }
+      .sequence_
+  }
+}
+
 trait JFreeInstances
 {
   implicit def instance_Viz_JFree[S: JSample, P: JParam]
   (implicit fconf: FigureConf) =
     new JFreeViz[S, P]
+
+  implicit def instance_SimpleViz_JFree[S: SampleVizData]
+  (implicit fconf: FigureConf) =
+    new JFreeSimpleViz[S]
 }

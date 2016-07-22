@@ -10,8 +10,7 @@ import breeze.stats.distributions.MultivariateGaussian
 import org.specs2.scalacheck._
 
 class RandomSpec
-extends Check[RBFData]
-with MSVSpecBase[Data, RBFs[GaussBF], Double]
+extends SimpleCheck[RBFData, RBFs[GaussBF]]
 {
   import GenBase._
 
@@ -21,12 +20,12 @@ with MSVSpecBase[Data, RBFs[GaussBF], Double]
 
   override def epsilon = 1e-15d
 
-  def result(classData: RBFData, classes: Nel[ClassData], data: Nel[Data])
-  (implicit sample: Sample[Data]) = {
-    val margin = 1e-5d * (trials | data.length)
+  def margin(sd: RBFData) = 1e-5d
+
+  def msv(classes: Nel[ClassData], data: Nel[Data])
+  (implicit mc: MC[Data], sample: Sample[Data]) = {
     val lconf =
       RBFLearnConf.default[GaussBF, Data](rbfs = classes.length, eta = 1d)
-    val msv = RBF.msv(data.shuffle, lconf, sconf)
-    train(msv, margin)
+    RBF.msv(data.shuffle, lconf, sconf)
   }
 }

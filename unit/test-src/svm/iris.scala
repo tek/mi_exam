@@ -8,8 +8,8 @@ import viz._
 object SVMIrisInstances
 {
   implicit def instance_ModelClasses_Iris
-  (cls1: ModelClass[Iris], cls2: ModelClass[Iris]): ModelClasses[Iris] =
-    new ModelClasses[Iris] {
+  (cls1: ModelClass[Iris], cls2: ModelClass[Iris]): ModelClasses[Iris, Double] =
+    new ModelClasses[Iris, Double] {
       import Iris._
       def classes = Nel(cls1, cls2)
 

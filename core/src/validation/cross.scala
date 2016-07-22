@@ -9,65 +9,69 @@ import Stream.Handle
 import cats.data.Xor._
 import cats.data.Validated._
 
+import ModelTypes._
+
 object ModelSelection
 {
-  type Result[A, P, O] = Stream[Task, String ValidatedNel Learn[A, P, O]]
+  type Result[S, P, M] = Stream[Task, String ValidatedNel Learn[S, P, M]]
 
   type Trans[A, B] = Handle[Task, A] => Pull[Task, B, Handle[Task, B]]
 }
 
 import ModelSelection._
 
-case class ModelSelection[A, P, O]
-(estimation: Est[P], validation: Validation[A, O])
+case class ModelSelection[S, P, V]
+(estimation: Est[P], validation: Validation[S, V])
 
-case class ModelTrainInfo[A, P, O]
-(model: ModelSelection[A, P, O], stats: EstimationStats)
+case class ModelTrainInfo[S, P, V]
+(model: ModelSelection[S, P, V], stats: EstimationStats)
 
-trait ModelSelector[A, P, O]
+trait ModelSelector[S, P, M]
 {
+  type R = Result[S, P, M]
   def config: ModelSelectionConf
 
-  def data: Nel[A]
+  def data: Nel[S]
 
-  def result: Result[A, P, O]
+  def result: R
 
   def validatedCount: Int
 }
 
-sealed trait Learn[A, P, O]
+sealed trait Learn[S, P, M]
 
 object Learn
 {
-  case class Go[A, P, O]()
-  extends Learn[A, P, O]
+  case class Go[A, P, M]()
+  extends Learn[A, P, M]
 
-  case class Fold[A, P, O](train: Nel[A], test: Nel[A])
-  extends Learn[A, P, O]
+  case class Fold[A, P, M](train: Nel[A], test: Nel[A])
+  extends Learn[A, P, M]
 
-  case class Step[A, P, O](estimation: Est[P])
-  extends Learn[A, P, O]
+  case class Step[A, P, M](estimation: Est[P])
+  extends Learn[A, P, M]
 
-  case class Result[A, P, O](model: ModelSelection[A, P, O])
-  extends Learn[A, P, O]
+  case class Result[A, P, M](model: ModelSelection[A, P, M])
+  extends Learn[A, P, M]
 
-  case class Done[A, P, O]()
-  extends Learn[A, P, O]
+  case class Done[A, P, M]()
+  extends Learn[A, P, M]
 
 //   case class Error[A, P, O](msg: String)
 //   extends Learn[A, P, O]
 }
 
-case class CrossValidator[A, P, M, O](data: Nel[A],
-  config: ModelSelectionConf, estimator: Nel[A] => Estimator[P],
-  modelCreator: Nel[A] => ModelCreator[P, M],
-  validator: Nel[A] => Validator[A, M, O])
-extends ModelSelector[A, P, O]
+case class CrossValidator[S, P, M, V](data: Nel[S],
+  config: ModelSelectionConf, estimator: Nel[S] => Estimator[P],
+  modelCreator: Nel[S] => ModelCreator[P, M],
+  validator: Nel[S] => Validator[S, M, V])
+(implicit mt: ModelTypes[M])
+extends ModelSelector[S, P, V]
 {
-  def result: Result[A, P, O] =
+  def result: R =
     intervals.map(interval).flatSequence
 
-  def interval(start: Int): Result[A, P, O] = {
+  def interval(start: Int): R = {
     separate(start)
       .map(learn)
       .fold(a => Stream.emit(a.invalid), identity)
@@ -98,8 +102,8 @@ extends ModelSelector[A, P, O]
   /* Stream the estimation intermediates on the writer side of the output of
    * `trans`, then transform into the Learn algebra.
    */
-  private[this] def learn(trainData: Nel[A], testData: Nel[A])
-  : Stream[Task, String ValidatedNel Learn[A, P, O]] = {
+  private[this] def learn(trainData: Nel[S], testData: Nel[S])
+  : Stream[Task, String ValidatedNel Learn[S, P, V]] = {
     type PP = P
     type In = String ValidatedNel Est[P]
     import Pull._
@@ -112,7 +116,7 @@ extends ModelSelector[A, P, O]
         case None => done
       }
     }
-    Stream.emit(Learn.Fold[A, PP, O](trainData, testData).valid) ++
+    Stream.emit(Learn.Fold[S, PP, V](trainData, testData).valid) ++
       estimator(trainData).stream.pull(trans(None))
         .map {
           case Left(e) => e map (Learn.Step(_))
@@ -125,15 +129,15 @@ extends ModelSelector[A, P, O]
   }
 }
 
-case class ModelSelectionValidation[A, P, O]
-(results: Nel[ModelSelection[A, P, O]], stats: Nel[EstimationStats],
+case class ModelSelectionValidation[S, P, V]
+(results: Nel[ModelSelection[S, P, V]], stats: Nel[EstimationStats],
  config: ModelSelectionConf, totalCount: Int)
 {
   lazy val totalError = stats.map(_.totalError).toList.sum
 
   lazy val foldError = totalError / results.length
 
-  def info: Nel[ModelTrainInfo[A, P, O]] =
+  def info: Nel[ModelTrainInfo[S, P, V]] =
     results.fzip(stats).map { case (a, b) => ModelTrainInfo(a, b) }
 
   def successes = stats.map(_.successes).toList.sum
@@ -178,16 +182,16 @@ extends Logging
   def totalSuccesses = validation.successes
 }
 
-abstract class ModelSelectionValidator[A, P, O]
+abstract class ModelSelectionValidator[S, P, M, V]
 extends Logging
 {
   private[this] type E = Est[P]
-  private[this] type M = ModelSelection[A, P, O]
-  private[this] type MSV = ModelSelectionValidation[A, P, O]
+  private[this] type MS = ModelSelection[S, P, V]
+  private[this] type MSV = ModelSelectionValidation[S, P, V]
 
   override def loggerName = List("msv")
 
-  val cross: ModelSelector[A, P, O]
+  val cross: ModelSelector[S, P, V]
 
   val cost: Func2
 
@@ -197,10 +201,10 @@ extends Logging
 
   def totalCount = cross.validatedCount
 
-  def unified: Result[A, P, O] =
+  def unified: Result[S, P, V] =
     result ++ Stream.emit(Learn.Done().valid)
 
-  def model: Stream[Task, String ValidatedNel M] =
+  def model: Stream[Task, String ValidatedNel MS] =
     unified
       .collect {
         case i @ Invalid(_) => i
@@ -215,9 +219,9 @@ extends Logging
 
 object ModelSelectionValidator
 {
-  def validation[A, P, O](msv: ModelSelectionValidator[A, P, O],
-    in: Stream[Task, String ValidatedNel ModelSelection[A, P, O]])
-  : Stream[Task, String ValidatedNel ModelSelectionValidation[A, P, O]] = {
+  def validation[S, P, M, V](msv: ModelSelectionValidator[S, P, M, V],
+    in: Stream[Task, String ValidatedNel ModelSelection[S, P, V]])
+  : Stream[Task, String ValidatedNel ModelSelectionValidation[S, P, V]] = {
     Stream.eval(in.runLog)
       .map(_.toList.sequenceU)
       .map {
