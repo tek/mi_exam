@@ -43,6 +43,8 @@ object ModelTypes
 
       def scalarDistance(a: Value, b: Value) = (a - b).abs
     }
+
+  def apply[M](implicit instance: ModelTypes[M]) = instance
 }
 
 @tc abstract class Sample[S]
