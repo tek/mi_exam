@@ -1,6 +1,9 @@
 package tryp
 package mi
 
+import breeze._
+import linalg._
+
 abstract class SampleValidation[S: Sample, V]
 (implicit val mc: ModelClasses[S, V])
 {
@@ -37,8 +40,9 @@ case class ColSV[S: Sample](data: S, output: Col)
 extends SampleValidation[S, Col]
 {
   def error(cost: Func2) = {
-    ???
-    // data.value map (cost.f[Col](_, output)) map (_.sum)
+    import cost._
+    val v = data.value map (cost(_, output)) map (sum(_))
+    v.toValidatedNel
   }
 }
 
