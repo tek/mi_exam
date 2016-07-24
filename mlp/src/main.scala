@@ -62,7 +62,7 @@ object MLP
   def msv[S: Sample]
   (data: Nel[S], conf: MLPLearnConf, sconf: ModelSelectionConf)
   (implicit mc: MC[S])
-  : ModelSelectionValidator[S, Weights, MLP, Double] = {
+  : MSV[S, Weights, MLP, Double] = {
     val stop = ParamDiffStopCriterion[Weights](sconf.steps, sconf.epsilon)
     lazy val validator =
       CrossValidator[S, Weights, MLP, Double](data, sconf,
@@ -286,4 +286,4 @@ extends Validator[S, MLP, Double]
 
 case class MLPModelSelectionValidator[S]
 (cross: CrossValidator[S, Weights, MLP, Double], cost: Func2)
-extends ModelSelectionValidator[S, Weights, MLP, Double]
+extends MSV[S, Weights, MLP, Double]

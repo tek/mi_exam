@@ -209,7 +209,7 @@ extends Validator[S, RBFNet[P], Double]
 
 case class RBFModelSelectionValidator[S, P]
 (cross: CrossValidator[S, RBFs[P], RBFNet[P], Double], cost: Func2)
-extends ModelSelectionValidator[S, RBFs[P], RBFs[P], Double]
+extends MSV[S, RBFs[P], RBFs[P], Double]
 
 object RBF
 {

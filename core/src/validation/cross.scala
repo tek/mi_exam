@@ -182,12 +182,11 @@ extends Logging
   def totalSuccesses = validation.successes
 }
 
-abstract class ModelSelectionValidator[S, P, M, V]
+trait MSV[S, P, M, V]
 extends Logging
 {
   private[this] type E = Est[P]
   private[this] type MS = ModelSelection[S, P, V]
-  private[this] type MSV = ModelSelectionValidation[S, P, V]
 
   override def loggerName = List("msv")
 
@@ -212,14 +211,14 @@ extends Logging
       }
 
   lazy val validation =
-    ModelSelectionValidator.validation(this, model)
+    MSV.validation(this, model)
 
   def printer = validation map (_.map(_.printer))
 }
 
-object ModelSelectionValidator
+object MSV
 {
-  def validation[S, P, M, V](msv: ModelSelectionValidator[S, P, M, V],
+  def validation[S, P, M, V](msv: MSV[S, P, M, V],
     in: Stream[Task, String ValidatedNel ModelSelection[S, P, V]])
   : Stream[Task, String ValidatedNel ModelSelectionValidation[S, P, V]] = {
     Stream.eval(in.runLog)

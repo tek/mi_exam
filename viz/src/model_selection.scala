@@ -81,7 +81,7 @@ object PlottedModelSelection
 }
 
 case class PMSCore[A, B, P, M, V]
-(msv: ModelSelectionValidator[A, P, M, V], q: Queue[Task, Learn[A, P, V]],
+(msv: MSV[A, P, M, V], q: Queue[Task, Learn[A, P, V]],
   finished: Signal[Task, Boolean], stepInterval: FiniteDuration)
 (implicit backend: Viz[B, A, P])
 {
@@ -106,7 +106,7 @@ case class PMSCore[A, B, P, M, V]
   }
 
   lazy val validation =
-    ModelSelectionValidator.validation(msv, results)
+    MSV.validation(msv, results)
 
   def plotStream: fs2.Stream[Task, Unit] = {
     val s = Stream.emit(Learn.Go[A, P, V]()) ++ q.dequeue
@@ -139,7 +139,7 @@ case class PMSCore[A, B, P, M, V]
 }
 
 case class PlottedModelSelection[S, B, P, M, V]
-(msv: ModelSelectionValidator[S, P, M, V],
+(msv: MSV[S, P, M, V],
   stepInterval: FiniteDuration = 100.millis)
 (implicit backend: Viz[B, S, P])
 {

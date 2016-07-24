@@ -31,4 +31,4 @@ extends Validator[S, ICA, Double]
 
 case class ICAModelSelectionValidator[S, P]
 (cross: CrossValidator[S, ICA, ICA, Double], cost: Func2)
-extends ModelSelectionValidator[S, ICA, ICA, Double]
+extends MSV[S, ICA, ICA, Double]

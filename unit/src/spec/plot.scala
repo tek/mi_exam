@@ -17,7 +17,7 @@ extends MSVSpecBase[A, P, M, V]
     FigureConf.default("mi", width = 1000, height = 1000,
       shape = estimationShape)
 
-  def mkPms(msv: MSV)(implicit plotBE: Viz[JFree, A, P]) = 
+  def mkPms(msv: MSV0)(implicit plotBE: Viz[JFree, A, P]) = 
       PlottedModelSelection[A, JFree, P, M, V](msv, stepInterval)
 
   def validationError(pm: ModelSelectionValidation[A, P, V]) = {
@@ -44,7 +44,7 @@ with PlottedSpecHelpers[A, P, M, V]
 
   def title: String
 
-  def msv: MSV
+  def msv: MSV0
 
   def margin = foldMargin * (trials | sconf.folds)
 

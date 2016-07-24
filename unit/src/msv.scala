@@ -5,16 +5,16 @@ trait MSVSpecBase[S, P, M, V]
 extends tryp.SpecCommon
 with mi.Matchers
 {
-  type MSV = ModelSelectionValidator[S, P, M, V]
+  type MSV0 = MSV[S, P, M, V]
 
-  def msvError(msv: MSV) = {
+  def msvError(msv: MSV0) = {
     msv.validation.map { _.map { v =>
       v.printer.short()
       v.foldError
     } }
   }
 
-  def train(msv: MSV, margin: Double) =
+  def train(msv: MSV0, margin: Double) =
     msvError(msv) computes beValid(be_<=(margin))
 
   def trials: Option[Int] = None
@@ -42,7 +42,7 @@ with MSVSpecBase[S, P, M, V]
 
   def title: String
 
-  val msv: MSV
+  val msv: MSV0
 
   def margin = foldMargin * (trials | sconf.folds)
 

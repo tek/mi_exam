@@ -33,7 +33,7 @@ object KMeans
   def msv[S: Sample]
   (data: Nel[S], conf: KMeansLearnConf, sconf: ModelSelectionConf)
   (implicit mc: MC[S])
-  : ModelSelectionValidator[S, KMeans, KMeans, Col]
+  : MSV[S, KMeans, KMeans, Col]
   = {
     val stop = EmpiricalErrorStopCriterion[KMeans](sconf.steps, sconf.epsilon)
     lazy val validator = CrossValidator[S, KMeans, KMeans, Col](data,

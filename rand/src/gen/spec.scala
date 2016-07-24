@@ -119,7 +119,7 @@ trait MSVGen[A, P, M, V]
   def msv(cd: CheckData[A])
   (sconf: ModelSelectionConf)
   (implicit mc: ModelClasses[Data, V], s: Sample[Data])
-  : ModelSelectionValidator[Data, P, M, V]
+  : MSV[Data, P, M, V]
 
   def margin(cd: CheckData[A]): Double
 }

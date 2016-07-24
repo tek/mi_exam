@@ -31,4 +31,4 @@ extends Validator[S, SVM, Double]
 
 case class SVMModelSelectionValidator[S, P]
 (cross: CrossValidator[S, SVM, SVM, Double], cost: Func2)
-extends ModelSelectionValidator[S, SVM, SVM, Double]
+extends MSV[S, SVM, SVM, Double]

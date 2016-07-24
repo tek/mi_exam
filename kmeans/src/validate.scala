@@ -40,4 +40,4 @@ extends Validator[S, KMeans, Col]
 
 case class KMeansModelSelectionValidator[S]
 (cross: CrossValidator[S, KMeans, KMeans, Col], cost: Func2)
-extends ModelSelectionValidator[S, KMeans, KMeans, Col]
+extends MSV[S, KMeans, KMeans, Col]
