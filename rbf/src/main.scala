@@ -203,7 +203,7 @@ extends Validator[S, RBFNet[P], Double]
 
   def run(model: RBFNet[P]) = {
     val pred = data map(verify(model))
-    Validation(pred)
+    Val(pred)
   }
 }
 

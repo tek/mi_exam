@@ -55,7 +55,13 @@ case class EstimationStats(successes: Int, errors: Nel[Double])
   def count = errors.length
 }
 
-case class Validation[S, V](data: Nel[SampleValidation[S, V]])
+trait Validation
+{
+  def stats(cost: Func2): Vali[EstimationStats]
+}
+
+case class Val[S, V](data: Nel[SampleValidation[S, V]])
+extends Validation
 {
   def stats(cost: Func2): Vali[EstimationStats] = {
     data.traverseU(_.error(cost))
@@ -67,5 +73,5 @@ abstract class Validator[S: Sample, M, V]
 {
   val data: Nel[S]
 
-  def run(weights: M): Validation[S, V]
+  def run(weights: M): Val[S, V]
 }

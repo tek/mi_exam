@@ -25,7 +25,7 @@ extends Validator[S, PCA, Double]
 
   def run(model: PCA) = {
     val pred = data map(verify(model))
-    Validation(pred)
+    Val(pred)
   }
 }
 

@@ -34,7 +34,7 @@ extends Validator[S, KMeans, Col]
   }
 
   def run(model: KMeans) = {
-    Validation(data map verify(model))
+    Val(data map verify(model))
   }
 }
 

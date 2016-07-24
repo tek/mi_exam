@@ -7,25 +7,25 @@ import Step._
 
 import annotation.tailrec
 
-case class Est[M](iterations: Long, params: M)
+case class Est[P](iterations: Long, params: P)
 
-trait EstimationStep[M]
+trait EstimationStep[P]
 {
-  protected type I = String ValidatedNel M
+  protected type I = String ValidatedNel P
 
-  def apply(params: M): I
+  def apply(params: P): I
 }
 
-trait Estimator[M]
+trait Estimator[P]
 {
-  protected type I = Vali[M]
-  protected type R = Vali[Est[M]]
+  protected type I = Vali[P]
+  protected type R = Vali[Est[P]]
 
   def stream: Stream[Task, R]
 }
 
-trait SimpleEstimator[M]
-extends Estimator[M]
+trait SimpleEstimator[P]
+extends Estimator[P]
 {
   def go: I
 
@@ -33,22 +33,22 @@ extends Estimator[M]
     Stream.suspend(Stream.emit(go map (Est(1, _))))
 }
 
-trait IterativeEstimator[M]
-extends Estimator[M]
+trait IterativeEstimator[P]
+extends Estimator[P]
 {
-  def initialParams: M
+  def initialParams: P
 
-  def stop: StopCriterion[M]
+  def stop: StopCriterion[P]
 
-  def steps: Nel[EstimationStep[M]]
+  def steps: Nel[EstimationStep[P]]
 
-  def result(iteration: Long, par: M) = Est(iteration, par)
+  def result(iteration: Long, par: P) = Est(iteration, par)
 
   implicit def strat = Strategy.sequential
 
   // def run: Task[R] = {
   //   @tailrec
-  //   def go(iteration: Long, par: M, prev: Option[M]): Est[M] = {
+  //   def go(iteration: Long, par: P, prev: Option[P]): Est[P] = {
   //     if (stop(iteration, par, prev)) result(iteration, par)
   //     else go(iteration + 1, step(par), Some(par))
   //   }
@@ -59,7 +59,7 @@ extends Estimator[M]
 
   private[this] lazy val empty = Stream.empty[Task, R]
 
-  private[this] def streamRecurse(iteration: Long, param: M, prev: Option[M]) =
+  private[this] def streamRecurse(iteration: Long, param: P, prev: Option[P]) =
   {
     if (stop(iteration, param, prev)) empty
     else Stream.suspend(streamImpl(
@@ -67,7 +67,7 @@ extends Estimator[M]
     )
   }
 
-  private[this] def streamImpl(iteration: Long, param: I, prev: Option[M])
+  private[this] def streamImpl(iteration: Long, param: I, prev: Option[P])
   : Ret = {
     Stream.emit(param map (result(iteration, _))) ++
     param.fold(a => Stream.emit(a.invalid), streamRecurse(iteration, _, prev))
@@ -83,10 +83,10 @@ extends Estimator[M]
   }
 }
 
-trait UniformIterativeEstimator[M]
-extends IterativeEstimator[M]
+trait UniformIterativeEstimator[P]
+extends IterativeEstimator[P]
 {
-  def step: EstimationStep[M]
+  def step: EstimationStep[P]
 
   def steps = Nel(step)
 }

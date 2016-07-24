@@ -280,7 +280,7 @@ extends Validator[S, MLP, Double]
 
   def run(model: MLP) = {
     val pred = data map(verify(model))
-    Validation(pred)
+    Val(pred)
   }
 }
 

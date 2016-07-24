@@ -15,20 +15,20 @@ import breeze.plot._
 
 import ModelSelection._
 
-case class Plotter[A, B, P]
-(plotData: B, data: Option[(Nel[A], Nel[A])])
-(implicit strat: Strategy, backend: Viz[B, A, P])
+case class Plotter[S, B, P]
+(plotData: B, data: Option[(Nel[S], Nel[S])])
+(implicit strat: Strategy, backend: Viz[B, S, P])
 {
-  def setup: Task[Plotter[A, B, P]] = {
+  def setup: Task[Plotter[S, B, P]] = {
     backend.setup(plotData).map(_ => this)
   }
 
-  def fold(train: Nel[A], test: Nel[A]): Task[Plotter[A, B, P]] = {
+  def fold(train: Nel[S], test: Nel[S]): Task[Plotter[S, B, P]] = {
     backend.fold(plotData)(train.unwrap, test.unwrap)
       .map(a => Plotter(plotData, Some((train, test))))
   }
 
-  def step(est: Est[P]): Task[Plotter[A, B, P]] = {
+  def step(est: Est[P]): Task[Plotter[S, B, P]] = {
     data
       .map(a => backend.step(plotData)(est.params))
       .getOrElse(Task.now(()))
@@ -38,9 +38,9 @@ case class Plotter[A, B, P]
 
 object Plotter
 {
-  def empty[A, B, P]
-  (implicit strat: Strategy, backend: Viz[B, A, P]) =
-    Plotter[A, B, P](backend.init, None)
+  def empty[S, B, P]
+  (implicit strat: Strategy, backend: Viz[B, S, P]) =
+    Plotter[S, B, P](backend.init, None)
 }
 
 object PlottedModelSelection
@@ -51,15 +51,15 @@ object PlottedModelSelection
 
   val sleep = time.sleep[Task] _ andThen Pull.outputs _
 
-  def plotLoop[A, B, P, M]
-  (plotter: Plotter[A, B, P], stepInterval: FiniteDuration)
-  : Trans[Learn[A, P, M], Unit] = {
+  def plotLoop[S, B, P, M]
+  (plotter: Plotter[S, B, P], stepInterval: FiniteDuration)
+  : Trans[Learn[S, P], Unit] = {
     type P1 = P
     import Pull._
     import Learn._
     receive1 {
       case a #: h =>
-        val rec = plotLoop((_: Plotter[A, B, P1]), stepInterval)(h)
+        val rec = plotLoop((_: Plotter[S, B, P1]), stepInterval)(h)
         a match {
           case Go() =>
             eval(plotter.setup) >> sleep(1.second) >> rec(plotter)
@@ -80,21 +80,21 @@ object PlottedModelSelection
   }
 }
 
-case class PMSCore[A, B, P, M, V]
-(msv: MSV[A, P, M, V], q: Queue[Task, Learn[A, P, V]],
+case class PMSCore[S, B, P, M, V]
+(msv: MSV[S, P, M, V], q: Queue[Task, Learn[S, P]],
   finished: Signal[Task, Boolean], stepInterval: FiniteDuration)
-(implicit backend: Viz[B, A, P])
+(implicit backend: Viz[B, S, P])
 {
   import PlottedModelSelection._
 
-  type MS = ModelSelection[A, P, V]
-  type MSV = ModelSelectionValidation[A, P, V]
+  type MS = ModelSelection[P]
+  type MSV = ModelSelectionValidation[S, P, V]
   type Res = String ValidatedNel MSV
-  type L = Learn[A, P, V]
+  type L = Learn[S, P]
 
   lazy val results: Stream[Task, String ValidatedNel MS] = {
     val em = Stream.empty[Task, String ValidatedNel MS]
-    def send(t: Learn[A, P, V]) =
+    def send(t: Learn[S, P]) =
         Stream.eval(q.enqueue1(t)).flatMap(_ => em)
     msv.unified.flatMap {
       case Valid(l @ Learn.Fold(train, test)) => send(l)
@@ -109,8 +109,8 @@ case class PMSCore[A, B, P, M, V]
     MSV.validation(msv, results)
 
   def plotStream: fs2.Stream[Task, Unit] = {
-    val s = Stream.emit(Learn.Go[A, P, V]()) ++ q.dequeue
-    finished.interrupt(s.pull(plotLoop(Plotter.empty[A, B, P], stepInterval)))
+    val s = Stream.emit(Learn.Go[S, P]()) ++ q.dequeue
+    finished.interrupt(s.pull(plotLoop(Plotter.empty[S, B, P], stepInterval)))
   }
 
   def waitForCompletion(res: Either[Unit, Res])
@@ -148,7 +148,7 @@ case class PlottedModelSelection[S, B, P, M, V]
   type MSV = ModelSelectionValidation[S, P, V]
   type Res = String ValidatedNel MSV
 
-  def queue = async.unboundedQueue[Task, Learn[S, P, V]]
+  def queue = async.unboundedQueue[Task, Learn[S, P]]
 
   def finished = async.signalOf[Task, Boolean](false)
 

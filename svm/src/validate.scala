@@ -26,7 +26,7 @@ extends Validator[S, SVM, Double]
   }
 
   def run(model: SVM) =
-    Validation(data map(verify(model)))
+    Val(data map(verify(model)))
 }
 
 case class SVMModelSelectionValidator[S, P]

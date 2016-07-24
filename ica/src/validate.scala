@@ -25,7 +25,7 @@ extends Validator[S, ICA, Double]
 
   def run(model: ICA) = {
     val pred = data map(verify(model))
-    Validation(pred)
+    Val(pred)
   }
 }
 
