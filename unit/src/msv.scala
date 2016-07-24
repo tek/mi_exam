@@ -2,7 +2,8 @@ package tryp
 package mi
 
 trait MSVSpecBase[S, P, M, V]
-extends Spec
+extends tryp.SpecCommon
+with mi.Matchers
 {
   type MSV = ModelSelectionValidator[S, P, M, V]
 
@@ -22,7 +23,7 @@ extends Spec
 
   def folds = 10
 
-  lazy val sconf = ModelSelectionConf.default(
+  val sconf = ModelSelectionConf.default(
     epsilon = epsilon,
     trials = trials,
     folds = folds,
@@ -30,7 +31,8 @@ extends Spec
 }
 
 trait MSVSpec[S, P, M, V]
-extends MSVSpecBase[S, P, M, V]
+extends Spec
+with MSVSpecBase[S, P, M, V]
 {
   def is = s2"""
   $title

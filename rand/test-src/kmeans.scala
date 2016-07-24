@@ -1,30 +1,28 @@
 package tryp
 package mi
 package kmeans
+package unit
 
-import breeze.linalg._
-import breeze.numerics._
-import breeze.linalg.functions.euclideanDistance
-import breeze.stats.distributions.MultivariateGaussian
-
-import org.specs2.scalacheck._
+trait KMeansRandomSpecBase
 
 class RandomSpec
-extends MSVCheck[KMeansData, KMeans, KMeans, Col]
+extends MSVCheckSpec[KMeansData, KMeans, KMeans, Col]
 {
-  import GenBase._
+  override def numTests = 1
 
-  lazy val dataGen = KMeansGen.kmeans(5, 5, Range(folds * 5, folds * 10))
+  override def trials = 1.some
 
-  override val trials = Some(1)
+  override def epsilon = 10d * genData.sampleRange
 
-  override def epsilon = 1e-15d
+  lazy val dataGen = KMeansGen.kmeans(3, 3, Range(folds * 5, folds * 10))
+}
 
-  def margin(sd: KMeansData) = 1e-5d
+class PlottedRandomSpec
+extends PlottedCheckSpec[KMeansData, KMeans, KMeans, Col]
+{
+  override def numTests = 1
 
-  def msv(classes: Nel[ClassData], data: Nel[Data])
-  (implicit mc: MC[Data], sample: Sample[Data]) = {
-    val lconf = KMeansLearnConf.default()
-    KMeans.msv(data.shuffle, lconf, sconf)
-  }
+  override def trials = 1.some
+
+  lazy val dataGen = KMeansGen.kmeans(3, 3, Range(folds * 5, folds * 10))
 }

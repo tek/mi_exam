@@ -2,7 +2,7 @@ package tryp
 package mi
 package mlp
 
-case class Dat(feature: Col, value: Double)
+case class Dat(feature: Col, cls: ModelClass[Dat])
 
 object Dat
 {
@@ -54,7 +54,7 @@ extends Spec
 
   lazy val grad = optimizer.modelGradient(forward, backward)
 
-  lazy val costError = costFun.deriv.f(pred.sample.value, forward.output)
+  lazy val costError = costFun.deriv.f(pred.sample.valueOrNaN, forward.output)
 }
 
 class InternalTrivialSpec
@@ -70,6 +70,8 @@ extends InternalBase
   result $result
   """
 
+  import Dat._
+
   val layers = Nel(3)
 
   def eta = 0.7
@@ -82,7 +84,7 @@ extends InternalBase
 
   val h1_0 = x0 * w0_00
 
-  lazy val sample = Dat(Col(x0, 0d), 1d)
+  lazy val sample = Dat(Col(x0, 0d), Cls)
 
   def weights =
     new ManualWeights(Nel(
@@ -109,7 +111,7 @@ extends InternalBase
     grad.head(0, 0) must beCloseTo(h1_0 * h1_0 * f1, 0.001)
   }
 
-  lazy val error = h1_0 - sample.value
+  lazy val error = h1_0 - sample.valueOrNaN
 
   def gradientComplete = {
     optimizer(pred).head(0, 0) must_== (grad.head(0, 0) * error)
@@ -136,6 +138,8 @@ extends InternalBase
   gradient $gradient
   cost $cost
   """
+
+  import Dat._
 
   lazy val tr = Logistic(beta)
 
@@ -168,7 +172,7 @@ extends InternalBase
   lazy val conf =
     MLPLearnConf.default(tr, eta, layers, weights, costFun, bias)
 
-  lazy val sample = Dat(Col(x0, 0d), 1d)
+  lazy val sample = Dat(Col(x0, 0d), Cls)
 
   def input = {
     val ti1 = Col(td.f(x0), td.f(0d))
@@ -192,7 +196,7 @@ extends InternalBase
   }
 
   def cost = {
-    val err = s2_0 - sample.value
+    val err = s2_0 - sample.valueOrNaN
     costError must beCloseTo(err, 0.001)
   }
 }

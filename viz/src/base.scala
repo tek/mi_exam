@@ -37,7 +37,7 @@ extends AnyRef
   def plots(data: List[Col], size: Option[Array[Double]])
   : List[Tuple3[Array[Double], Array[Double], Array[Double]]] =
   {
-    val sz = data.length.gen(1d).toArray
+    val sz = size | data.length.gen(1d).toArray
     projections map {
       case (a, b) =>
         (data.map(_(a)).toArray, data.map(_(b)).toArray, sz)

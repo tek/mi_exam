@@ -8,22 +8,22 @@ import breeze.linalg._
 import pca._
 
 class MiscSpec
-extends Check[PCAData]
+extends CheckSpec[PCAData]
 {
   import GenBase._
 
   override def numTests = 1
 
-  lazy val dataGen = PCAGen.rings(2, 2, Range(4, 5))
+  lazy val dataGen = PCAGen.rings(2, 2, Range(4, 5), LinearKernel)
 
-  override def check(a: PCAData) = {
-    a.classes.map { g =>
-      g.gen() map { v =>
+  def mkCheck(cd: CheckData[PCAData]) =
+    new Check[PCAData](cd) {
+      def result = {
+        cd.conf.classes.map { g =>
+          g.gen() map { v =>
+          }
+        }
+        1 must_== 1
       }
     }
-    1 must_== 1
-  }
-
-  override def result(conf: PCAData, classes: Nel[ClassData], data: Nel[Data])
-  (implicit sample: Sample[Data]) = 1 must_== 1
 }

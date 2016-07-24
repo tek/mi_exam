@@ -33,7 +33,8 @@ extends MSVSpecBase[A, P, M, V]
 }
 
 abstract class PlottedSpecBase[A: Sample, P: ParamVizData, M, V]
-extends PlottedSpecHelpers[A, P, M, V]
+extends Spec
+with PlottedSpecHelpers[A, P, M, V]
 {
   override def is = s2"""
   $title

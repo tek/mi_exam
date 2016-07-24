@@ -16,7 +16,7 @@ import Arbitrary.arbitrary
 case class Plane(normal: Col, bias: Double, pivot: Col)
 
 case class SVMData(rank: Int, plane: Plane, one: Nel[ClassCluster[_]],
-  two: Nel[ClassCluster[_]])
+  two: Nel[ClassCluster[_]], kernel: KernelFunc)
 
 object SVMGen
 extends GenBase[SVMData]
@@ -46,9 +46,9 @@ extends GenBase[SVMData]
       plane <- genPlane(rank)
       one <- genLinearClass(1, rank, members, plane.pivot, plane.normal)
       two <- genLinearClass(-1, rank, members, plane.pivot, -plane.normal)
-    } yield SVMData(rank, plane, Nel(one), Nel(two))
+    } yield SVMData(rank, plane, Nel(one), Nel(two), LinearKernel)
 
-  def threeClusterPolySvm(maxRank: Int, members: Range) =
+  def threeClusterPolySvm(maxRank: Int, members: Range, kernel: KernelFunc) =
     for {
       rank <- choose(2, maxRank)
       plane <- genPlane(rank)
@@ -56,7 +56,7 @@ extends GenBase[SVMData]
       oneA <- genUniCluster(1, rank, members, plane.pivot - offset)
       oneB <- genUniCluster(1, rank, members, plane.pivot + offset)
       two <- genUniCluster(-1, rank, members, plane.pivot)
-    } yield SVMData(rank, plane, Nel(oneA, oneB), Nel(two))
+    } yield SVMData(rank, plane, Nel(oneA, oneB), Nel(two), kernel)
 }
 
 object SVMData
@@ -77,4 +77,20 @@ trait SVMDataInstances
 
       def domainRange = 10d
     }
+
+  implicit lazy val instance_MSVGen_SVMData
+  : MSVGen[SVMData, SVM, SVM, Double] =
+      new MSVGen[SVMData, SVM, SVM, Double] {
+        def margin(cd: CheckData[SVMData]) =
+          0.2 * cd.conf.rank
+
+        def msv(cd: CheckData[SVMData])
+        (sconf: ModelSelectionConf)
+        (implicit mc: ModelClasses[Data, Double], s: Sample[Data])
+        = {
+          val lconf =
+            SVMLearnConf.default(lambda = 0.5d, kernel = cd.conf.kernel)
+          SVM.msv(cd.data.shuffle, lconf, sconf)
+        }
+      }
 }

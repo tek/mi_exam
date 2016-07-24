@@ -26,7 +26,7 @@ case class Kern[A](a: A)(implicit sr: Semiring[A])
   }
 }
 
-class BreezeSpec
+class MiscSpec
 extends Spec
 {
   def is = s2"""
@@ -34,16 +34,9 @@ extends Spec
   """
 
   def test = {
-    val m = Mat((0.5d, 0.5d), (1d, 1d), (-1d, -1d), (2d, 2d), (5d, 3d))
-    val c = mean(m)
-    val cluster = m.rowCols.map(_ - c)
-    p(m(*, ::) - Col(1d, 1d))
-    p(cluster)
-    val v1 = variance(m)
-    val v2 = cluster.map(a => a dot a).sum
-    p(v1)
-    p(scala.math.sqrt(cluster.map(norm(_)).sum))
-    p(v2 / (m.data.length - 1))
+    val q = QuadraticError
+    val a = Col(1d, 2d)
+    val b = Col(1d, 3d)
     1 === 1
   }
 }

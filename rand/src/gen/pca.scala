@@ -11,7 +11,8 @@ import org.scalacheck.Gen
 case class Plane(normal: Col, bias: Double, pivot: Col)
 
 case class PCAData
-(rank: Int, classes: Nel[ClassCluster[_]], offset: Col, rotation: Mat)
+(rank: Int, classes: Nel[ClassCluster[_]], offset: Col, rotation: Mat,
+  kernel: KernelFunc)
 
 object PCAGen
 extends GenBase[PCAData]
@@ -23,7 +24,8 @@ extends GenBase[PCAData]
 
   def ringLimit = 10d
 
-  def rings(maxRank: Int, maxClasses: Int, members: Range) =
+  def rings(maxRank: Int, maxClasses: Int, members: Range, kernel: KernelFunc)
+  =
     for {
       rank <- choose(2, maxRank)
       z = Col.zeros[Double](rank)
@@ -31,9 +33,9 @@ extends GenBase[PCAData]
       variance <- choose[Double](0.0001d, vari)
       clust <- clusters(count, a => genRing(a, rank, members, z,
         variance, ringLimit * ((a + 1d) / count)))
-    } yield PCAData(rank, clust, z, diag(z))
+    } yield PCAData(rank, clust, z, diag(z), kernel)
 
-  def pca(maxRank: Int, members: Range) =
+  def pca(maxRank: Int, members: Range, kernel: KernelFunc) =
     for {
       rank <- choose(2, maxRank)
       rot <- rotationMatrix(rank)
@@ -41,7 +43,7 @@ extends GenBase[PCAData]
       variance <- GenBase.genPosSample(rank, 1d)
       cov = rot * diag(variance) * rot.t
       cluster <- genCluster(0, rank, members, offset, cov)
-    } yield PCAData(rank, Nel(cluster), offset, rot)
+    } yield PCAData(rank, Nel(cluster), offset, rot, kernel)
 }
 
 object PCAData
@@ -62,4 +64,19 @@ trait PCADataInstances
 
       def domainRange = 10d
     }
+
+  implicit lazy val instance_MSVGen_PCAData
+  : MSVGen[PCAData, PCA, PCA, Double] =
+      new MSVGen[PCAData, PCA, PCA, Double] {
+        def margin(cd: CheckData[PCAData]) =
+          0.2 * cd.conf.rank
+
+        def msv(cd: CheckData[PCAData])
+        (sconf: ModelSelectionConf)
+        (implicit mc: ModelClasses[Data, Double], s: Sample[Data])
+        = {
+          val lconf = PCALearnConf.default(kernel = cd.conf.kernel)
+          PCA.msv(cd.data.shuffle, lconf, sconf)
+        }
+      }
 }

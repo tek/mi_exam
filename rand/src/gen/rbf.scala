@@ -42,4 +42,21 @@ trait RBFDataInstances
 
       def domainRange = 10d
     }
+
+  implicit lazy val instance_MSVGen_RBFData
+  : MSVGen[RBFData, RBFs[GaussBF], RBFs[GaussBF], Double] =
+      new MSVGen[RBFData, RBFs[GaussBF], RBFs[GaussBF], Double] {
+        def margin(cd: CheckData[RBFData]) =
+          1e-5d
+
+        def msv(cd: CheckData[RBFData])
+        (sconf: ModelSelectionConf)
+        (implicit mc: ModelClasses[Data, Double], s: Sample[Data])
+        = {
+          val lconf =
+            RBFLearnConf.default[GaussBF, Data](
+              rbfs = cd.classes.length, eta = 1d)
+          RBF.msv(cd.data.shuffle, lconf, sconf)
+        }
+      }
 }

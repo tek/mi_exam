@@ -23,7 +23,7 @@ object SVMIrisInstances
 }
 
 trait IrisSpec
-extends IrisSpecBase[SVM, Double]
+extends IrisSpecBase[SVM, SVM, Double]
 {
   def title = "Support Vector Machine"
 
@@ -44,15 +44,16 @@ extends IrisSpecBase[SVM, Double]
 }
 
 class NormalIrisSpec
-extends IrisSpec
-with MSVSpec[Iris, SVM, Double]
+extends Spec
+with IrisSpec
+with MSVSpec[Iris, SVM, SVM, Double]
 {
   override val kernel = RBFKernel(.5d)
   // override val kernel = PolyKernel(2d, 1d)
 }
 
 class PlottedIrisSpec
-extends PlottedIrisSpecBase[SVM, Double]
+extends PlottedIrisSpecBase[SVM, SVM, Double]
 with IrisSpec
 {
   override def estimationShape: Shape = Shape.Line

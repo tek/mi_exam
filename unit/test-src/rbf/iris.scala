@@ -6,7 +6,7 @@ package unit
 import viz._
 
 trait IrisSpec
-extends IrisSpecBase[RBFs[GaussBF], Double]
+extends IrisSpecBase[RBFs[GaussBF], RBFs[GaussBF], Double]
 {
   def title = "Radial Basis Functions"
 
@@ -24,9 +24,10 @@ extends IrisSpecBase[RBFs[GaussBF], Double]
 }
 
 class NormalIrisSpec
-extends IrisSpec
-with MSVSpec[Iris, RBFs[GaussBF], Double]
+extends Spec
+with IrisSpec
+with MSVSpec[Iris, RBFs[GaussBF], RBFs[GaussBF], Double]
 
 class PlottedIrisSpec
-extends PlottedIrisSpecBase[RBFs[GaussBF], Double]
+extends PlottedIrisSpecBase[RBFs[GaussBF], RBFs[GaussBF], Double]
 with IrisSpec

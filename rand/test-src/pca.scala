@@ -8,17 +8,9 @@ import org.specs2.matcher.MatchResult
 import viz.Shape
 
 trait PCARandomSpecBase
-extends MSVCheck[PCAData, PCA, PCA, Double]
+extends SimpleCheckSpec[PCAData, PCA]
 {
   val kernel: KernelFunc = LinearKernel
-
-  def margin(sd: PCAData) = 0.2 * sd.rank
-
-  def msv(classes: Nel[ClassData], data: Nel[Data])
-  (implicit mc: MC[Data], sample: Sample[Data]) = {
-    val lconf = PCALearnConf.default(kernel = kernel)
-    PCA.msv(data.shuffle, lconf, sconf)
-  }
 }
 
 class LinearRandomSpec
@@ -28,11 +20,7 @@ extends PCARandomSpecBase
 
   // override def trials = 3.some
 
-  lazy val dataGen = PCAGen.pca(2, Range(folds * 5, folds * 10))
-
-  def trainPca(classData: PCAData, msv: MSV, margin: Double)
-  (implicit sample: Sample[Data]) =
-    train(msv, margin)
+  lazy val dataGen = PCAGen.pca(2, Range(folds * 5, folds * 10), kernel)
 }
 
 class RBFRandomSpec
@@ -40,13 +28,14 @@ extends LinearRandomSpec
 {
   override val kernel: KernelFunc = RBFKernel(2d)
 
-  override lazy val dataGen = PCAGen.rings(2, 2, Range(4, 5))
+  override lazy val dataGen = PCAGen.rings(2, 2, Range(4, 5), kernel)
 }
 
 class PlottedRandomSpec
-extends PlottedCheck[PCAData, PCA, PCA, Double]
-with PCARandomSpecBase
+extends PlottedCheckSpec[PCAData, PCA, PCA, Double]
 {
+  val kernel: KernelFunc = LinearKernel
+
   override def estimationShape: Shape = Shape.Line
 
   override def numTests = 1
@@ -55,5 +44,5 @@ with PCARandomSpecBase
 
   def lambda = 0.00005d
 
-  lazy val dataGen = PCAGen.pca(10, Range(folds * 5, folds * 10))
+  lazy val dataGen = PCAGen.pca(10, Range(folds * 5, folds * 10), kernel)
 }

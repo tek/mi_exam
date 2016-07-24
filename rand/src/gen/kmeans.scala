@@ -21,8 +21,8 @@ extends GenBase[KMeansData]
 
   def kmeans(maxRank: Int, maxClasses: Int, members: Range) =
     for {
-      rank <- choose(3, maxRank - 1)
-      classCount <- choose(3, maxClasses - 1)
+      rank <- choose(2, maxRank - 1)
+      classCount <- choose(2, maxClasses - 1)
       classes <- clusters(classCount, genClass(_, rank, members))
     } yield KMeansData(rank, classes)
 }
@@ -42,4 +42,20 @@ trait KMeansDataInstances
 
       def domainRange = 10d
     }
+
+  implicit lazy val instance_MSVGen_KMeansData
+  : MSVGen[KMeansData, KMeans, KMeans, Col] =
+      new MSVGen[KMeansData, KMeans, KMeans, Col] {
+        def margin(cd: CheckData[KMeansData]) =
+          15d * cd.conf.rank * cd.genData.sampleRange
+
+        def msv(cd: CheckData[KMeansData])
+        (sconf: ModelSelectionConf)
+        (implicit mc: ModelClasses[Data, Col], s: Sample[Data])
+        = {
+          val epsilon = 1d * cd.conf.rank * cd.genData.sampleRange
+          val lconf = KMeansLearnConf.default()
+          KMeans.msv(cd.data.shuffle, lconf, sconf.copy(epsilon = epsilon))
+        }
+      }
 }

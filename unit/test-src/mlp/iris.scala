@@ -4,8 +4,9 @@ package mlp
 package unit
 
 class IrisSpec
-extends IrisSpecBase[Weights, Double]
-with MSVSpec[Iris, Weights, Double]
+extends Spec
+with IrisSpecBase[Weights, MLP, Double]
+with MSVSpec[Iris, Weights, MLP, Double]
 {
   def title = "Multilayer Perceptron"
 
