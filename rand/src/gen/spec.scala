@@ -121,7 +121,7 @@ trait MSVGen[A, P, M, V, C]
   def msv(cd: CheckData[A])(sc: MSConf)
   (implicit mc: ModelClasses[Data, V], s: Sample[Data])
   : MSV[Data, P] = {
-    implicit val lc = lconf(cd)
+    implicit val lc = lconf(cd, sc)
     implicit val sc2 = sconf(cd, sc)
     implicit val cm = createMSV
     MSV.create[Data, P, M, C](cd.data.shuffle)
@@ -129,7 +129,7 @@ trait MSVGen[A, P, M, V, C]
 
   def createMSV(implicit s: Sample[Data], mc: ModelClasses[Data, V]): Create
 
-  def lconf(cd: CheckData[A])(implicit s: Sample[Data]): C
+  def lconf(cd: CheckData[A], sc: MSConf)(implicit s: Sample[Data]): C
 
   def sconf(cd: CheckData[A], sc: MSConf): MSConf = sc
 

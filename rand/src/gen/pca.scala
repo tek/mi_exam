@@ -75,7 +75,8 @@ trait PCADataInstances
         def margin(cd: CheckData[PCAData]) =
           0.2 * cd.conf.rank
 
-        def lconf(cd: CheckData[PCAData])(implicit s: Sample[Data]) =
+        def lconf(cd: CheckData[PCAData], sc: MSConf)
+        (implicit s: Sample[Data]) =
           PCALearnConf.default(kernel = cd.conf.kernel)
       }
 }

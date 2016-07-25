@@ -57,7 +57,8 @@ trait RBFDataInstances
         def margin(cd: CheckData[RBFData]) =
           1e-5d
 
-        def lconf(cd: CheckData[RBFData])(implicit s: Sample[Data]) =
+        def lconf(cd: CheckData[RBFData], sc: MSConf)
+        (implicit s: Sample[Data]) =
           RBFLearnConf.default[GaussBF, Data](
             rbfs = cd.classes.length, eta = 1d)
       }

@@ -86,7 +86,8 @@ trait SVMDataInstances
         def margin(cd: CheckData[SVMData]) =
           0.2 * cd.conf.rank
 
-        def lconf(cd: CheckData[SVMData])(implicit s: Sample[Data]) =
+        def lconf(cd: CheckData[SVMData], sc: MSConf)
+        (implicit s: Sample[Data]) =
           SVMLearnConf.default(lambda = 0.5d, kernel = cd.conf.kernel)
       }
 }

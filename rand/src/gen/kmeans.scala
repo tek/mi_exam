@@ -51,14 +51,15 @@ trait KMeansDataInstances
         def margin(cd: CheckData[KMeansData]) =
           15d * cd.conf.rank * cd.genData.sampleRange
 
-        def lconf(cd: CheckData[KMeansData])(implicit s: Sample[Data]) =
-          KMeansLearnConf.default()
+        def lconf(cd: CheckData[KMeansData], sc: MSConf)
+        (implicit s: Sample[Data]) =
+          KMeansLearnConf.ee(sc)
 
         def createMSV(implicit s: Sample[Data], mc: MC[Data]) = imp.imp
 
         override def sconf(cd: CheckData[KMeansData], sc: MSConf) =
         {
-          val epsilon = 1d * cd.conf.rank * cd.genData.sampleRange
+          val epsilon = 0.1d * cd.conf.rank * cd.genData.sampleRange
           sc.copy(epsilon = epsilon)
         }
       }

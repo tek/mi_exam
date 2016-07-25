@@ -87,7 +87,7 @@ extends CrossValidatorI[S, P]
   private[this] lazy val testSize = (l.length / config.folds).max(1)
 
   private[this] def intervals = {
-    val all = 0 until l.length by testSize
+    def all = 0 until l.length by testSize
     config.trials
       .map(all.take)
       .getOrElse(all)
@@ -123,7 +123,6 @@ extends CrossValidatorI[S, P]
       estimator(trainData).stream.pull(trans(None))
         .map {
           case Left(e) => e map (Learn.Step(_))
-          // case Invalid(err) => log.error(s"model selection failed: $err")
           case Right(v) => v map { e =>
             val model = modelCreator(trainData).run(e)
             Learn.Result(MS(e, validator(testData).run(model)))

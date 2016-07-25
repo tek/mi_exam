@@ -3,8 +3,6 @@ package mi
 package kmeans
 package unit
 
-trait KMeansRandomSpecBase
-
 class RandomSpec
 extends MSVCheckSpec[KMeansData, KMeans, KMeans, Col, KMeansLearnConf]
 {
