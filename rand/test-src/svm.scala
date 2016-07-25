@@ -6,7 +6,7 @@ package unit
 import viz.Shape
 
 trait SVMRandomSpecBase
-extends SimpleCheckSpec[SVMData, SVM]
+extends SimpleCheckSpec[SVMData, SVM, SVMLearnConf]
 
 class LinearRandomSpec
 extends SVMRandomSpecBase
@@ -35,7 +35,7 @@ extends SVMRandomSpecBase
 }
 
 class PlottedRandomSpec
-extends PlottedCheckSpec[SVMData, SVM, SVM, Double]
+extends PlottedCheckSpec[SVMData, SVM, SVM, Double, SVMLearnConf]
 {
   override def estimationShape: Shape = Shape.Line
 

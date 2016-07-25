@@ -2,62 +2,18 @@ package tryp
 package mi
 package rbf
 
-import simulacrum._
-
 import scalaz.std.vector.{vectorInstance => zVectorInstance}
 
-import monocle.macros.Lenses
-import monocle.function._
-import monocle.syntax.apply._
-
-import spire.math.exp
-import spire.algebra._
-import spire.implicits._
-import spire.random._
-
-import breeze.linalg.{sum, squaredDistance, pinv}
-import breeze.linalg.functions.euclideanDistance
-import breeze.numerics.abs
-import breeze.generic.UFunc
+import breeze._
+import linalg._
+import functions.euclideanDistance
+import numerics._
 
 import LearnConf._
 
 import BasisFunction.ops._
 
-case class RBFs[P: BasisFunction](bf: Nev[P])
-{
-  def centers = bf map(_.center)
-
-  def count = bf.length
-}
-
-object RBFs
-{
-  implicit def instance_ParamDiff_RBFNet[P]: ParamDiff[RBFs[P]] =
-    new ParamDiff[RBFs[P]] {
-      def diff(a: RBFs[P], b: RBFs[P]): Double = {
-        val dist = a.centers.fzip(b.centers)
-          .map { case (a, b) => euclideanDistance(a, b) }
-          .unwrap
-        sum(dist) / a.count
-      }
-    }
-}
-
-case class RBFNet[P: BasisFunction](rbfs: RBFs[P], weights: Col)
-{
-  def bf = rbfs.bf
-}
-
-object RBFNet
-{
-  implicit def instance_ModelState_RBFNet[P]: ModelState[RBFNet[P]] =
-    new ModelState[RBFNet[P]] {
-      def output(a: RBFNet[P]) = a.output
-    }
-}
-
-@typeclass abstract class UpdateParams[P: BasisFunction]
+@tc abstract class UpdateParams[P: BasisFunction]
 extends AnyRef
 {
   def updateCenter(index: Int, diff: Col): RBFs[P] => RBFs[P]
@@ -191,11 +147,11 @@ extends ModelCreator[RBFs[P], RBFNet[P]]
 case class RBFValidator[S: Sample, P: BasisFunction]
 (data: Nel[S], config: RBFLearnConf[P])
 (implicit mc: MC[S])
-extends Validator[S, RBFNet[P], Double]
+extends Validator[RBFNet[P]]
 {
   lazy val predict = RBFPredictor[P](config)
 
-  def verify(model: RBFNet[P])(sample: S): SampleValidation[S, Double] =
+  def verify(model: RBFNet[P])(sample: S): SampleValidation =
   {
     val pred = predict(sample, model)
     DSV(sample, pred.value)
@@ -204,24 +160,5 @@ extends Validator[S, RBFNet[P], Double]
   def run(model: RBFNet[P]) = {
     val pred = data map(verify(model))
     Val(pred)
-  }
-}
-
-case class RBFModelSelectionValidator[S, P]
-(cross: CrossValidator[S, RBFs[P], RBFNet[P], Double], cost: Func2)
-extends MSV[S, RBFs[P], RBFs[P], Double]
-
-object RBF
-{
-  def msv[S: Sample, P: BasisFunction: Initializer: UpdateParams]
-  (data: Nel[S], conf: RBFLearnConf[P], sconf: ModelSelectionConf)
-  (implicit mc: MC[S])
-  = {
-    val stop = ParamDiffStopCriterion[RBFs[P]](sconf.steps, sconf.epsilon)
-    lazy val validator =
-      CrossValidator[S, RBFs[P], RBFNet[P], Double](data,
-        sconf, RBFEstimator[S, P](_, conf, stop),
-        RBFModelCreator[S, P](_, conf), RBFValidator[S, P](_, conf))
-    RBFModelSelectionValidator(validator, conf.cost)
   }
 }

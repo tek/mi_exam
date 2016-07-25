@@ -79,18 +79,14 @@ trait SVMDataInstances
     }
 
   implicit lazy val instance_MSVGen_SVMData
-  : MSVGen[SVMData, SVM, SVM, Double] =
-      new MSVGen[SVMData, SVM, SVM, Double] {
+  : MSVGen[SVMData, SVM, SVM, Double, SVMLearnConf] =
+      new MSVGen[SVMData, SVM, SVM, Double, SVMLearnConf] {
+        def createMSV(implicit s: Sample[Data], mc: MC[Data]) = imp.imp
+
         def margin(cd: CheckData[SVMData]) =
           0.2 * cd.conf.rank
 
-        def msv(cd: CheckData[SVMData])
-        (sconf: ModelSelectionConf)
-        (implicit mc: ModelClasses[Data, Double], s: Sample[Data])
-        = {
-          val lconf =
-            SVMLearnConf.default(lambda = 0.5d, kernel = cd.conf.kernel)
-          SVM.msv(cd.data.shuffle, lconf, sconf)
-        }
+        def lconf(cd: CheckData[SVMData])(implicit s: Sample[Data]) =
+          SVMLearnConf.default(lambda = 0.5d, kernel = cd.conf.kernel)
       }
 }

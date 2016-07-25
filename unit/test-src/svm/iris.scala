@@ -39,21 +39,18 @@ extends IrisSpecBase[SVM, SVM, Double]
 
   override implicit def modelClasses =
     SVMIrisInstances.instance_ModelClasses_Iris(Iris.Setosa, Iris.Versicolor)
-
-  lazy val msv = SVM.msv(data, conf, sconf)
 }
 
 class NormalIrisSpec
-extends Spec
+extends SimpleMSVSpec[Iris, SVM, SVMLearnConf]
 with IrisSpec
-with MSVSpec[Iris, SVM, SVM, Double]
 {
   override val kernel = RBFKernel(.5d)
   // override val kernel = PolyKernel(2d, 1d)
 }
 
 class PlottedIrisSpec
-extends PlottedIrisSpecBase[SVM, SVM, Double]
+extends PlottedIrisSpecBase[SVM, SVM, Double, SVMLearnConf]
 with IrisSpec
 {
   override def estimationShape: Shape = Shape.Line

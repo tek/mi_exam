@@ -1,16 +1,17 @@
 package tryp
 package mi
 
-case class ModelSelectionConf(steps: Int, epsilon: Double, folds: Int,
-  trials: Option[Int])
+case class MSConf(steps: Int, epsilon: Double, folds: Int,
+  trials: Option[Int], cost: Func2)
 
-object ModelSelectionConf
+object MSConf
 {
   def default(
     steps: Int = 10000,
     epsilon: Double = 1e-4d,
     folds: Int = 10,
-    trials: Option[Int] = None
+    trials: Option[Int] = None,
+    cost: Func2 = QuadraticError
     ) =
-      ModelSelectionConf(steps, epsilon, folds, trials)
+      MSConf(steps, epsilon, folds, trials, cost)
 }

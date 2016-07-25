@@ -20,7 +20,7 @@ object DataModelClasses
 {
   implicit def instance_DataModelClasses_Double: DataModelClasses[Double] =
     new DataModelClasses[Double] {
-      def apply(d: Nel[ClassData]) = 
+      def apply(d: Nel[ClassData]) =
         new ModelClasses[Data, Double] {
           lazy val classes = d.map(_.label: ModelClass[Data])
 
@@ -37,7 +37,7 @@ object DataModelClasses
 
   implicit def instance_DataModelClasses_Col: DataModelClasses[Col] =
     new DataModelClasses[Col] {
-      def apply(d: Nel[ClassData]) = 
+      def apply(d: Nel[ClassData]) =
         new ModelClasses[Data, Col] {
           lazy val classes = d.map(_.label: ModelClass[Data])
 
@@ -114,19 +114,31 @@ with ScalaCheck
   }
 }
 
-trait MSVGen[A, P, M, V]
+trait MSVGen[A, P, M, V, C]
 {
-  def msv(cd: CheckData[A])
-  (sconf: ModelSelectionConf)
+  type Create = CreateMSV[Data, P, M, C]
+
+  def msv(cd: CheckData[A])(sc: MSConf)
   (implicit mc: ModelClasses[Data, V], s: Sample[Data])
-  : MSV[Data, P, M, V]
+  : MSV[Data, P] = {
+    implicit val lc = lconf(cd)
+    implicit val sc2 = sconf(cd, sc)
+    implicit val cm = createMSV
+    MSV.create[Data, P, M, C](cd.data.shuffle)
+  }
+
+  def createMSV(implicit s: Sample[Data], mc: ModelClasses[Data, V]): Create
+
+  def lconf(cd: CheckData[A])(implicit s: Sample[Data]): C
+
+  def sconf(cd: CheckData[A], sc: MSConf): MSConf = sc
 
   def margin(cd: CheckData[A]): Double
 }
 
-class MSVCheck[A: GenData, P, M, V: DataModelClasses]
-(cd: CheckData[A], override val sconf: ModelSelectionConf)
-(implicit msv: MSVGen[A, P, M, V])
+class MSVCheck[A: GenData, P, M, V: DataModelClasses, C]
+(cd: CheckData[A], override val sconf: MSConf)
+(implicit msv: MSVGen[A, P, M, V, C])
 extends Check[A](cd)
 with MSVSpecBase[Data, P, M, V]
 {
@@ -137,23 +149,23 @@ with MSVSpecBase[Data, P, M, V]
   def result = train(msv.msv(cd)(sconf), msv.margin(cd))
 }
 
-abstract class MSVCheckSpec[A: GenData, P, M, V: DataModelClasses]
-(implicit msv: MSVGen[A, P, M, V])
+abstract class MSVCheckSpec[A: GenData, P, M, V: DataModelClasses, C]
+(implicit msv: MSVGen[A, P, M, V, C])
 extends CheckSpec
 with MSVSpecBase[Data, P, M, V]
 {
-  def mkCheck(cd: CheckData[A]) = new MSVCheck[A, P, M, V](cd, sconf)
+  def mkCheck(cd: CheckData[A]) = new MSVCheck[A, P, M, V, C](cd, sconf)
 }
 
-abstract class SimpleCheckSpec[A: GenData, M]
-(implicit msv: MSVGen[A, M, M, Double])
-extends MSVCheckSpec[A, M, M, Double]
+abstract class SimpleCheckSpec[A: GenData, M, C]
+(implicit msv: MSVGen[A, M, M, Double, C])
+extends MSVCheckSpec[A, M, M, Double, C]
 
-class PlottedCheck[A: GenData, P: JParam, M, V: DataModelClasses]
-(cd: CheckData[A], sconf: ModelSelectionConf,
+class PlottedCheck[A: GenData, P: JParam, M, V: DataModelClasses, C]
+(cd: CheckData[A], sconf: MSConf,
   override val estimationShape: Shape)
-(implicit msv: MSVGen[A, P, M, V])
-extends MSVCheck[A, P, M, V](cd, sconf)
+(implicit msv: MSVGen[A, P, M, V, C])
+extends MSVCheck[A, P, M, V, C](cd, sconf)
 with viz.PlottedSpecHelpers[Data, P, M, V]
 {
   implicit lazy val sampleViz: SampleVizData[Data] =
@@ -173,13 +185,14 @@ with viz.PlottedSpecHelpers[Data, P, M, V]
   override def result = trainPms(mkPms(msv.msv(cd)(sconf)), msv.margin(cd))
 }
 
-abstract class PlottedCheckSpec[A: GenData, P: JParam, M, V: DataModelClasses]
-(implicit msv: MSVGen[A, P, M, V])
+abstract class PlottedCheckSpec
+[A: GenData, P: JParam, M, V: DataModelClasses, C]
+(implicit msv: MSVGen[A, P, M, V, C])
 extends CheckSpec
 with MSVSpecBase[Data, P, M, V]
 {
   def estimationShape: Shape = Shape.Scatter
 
   def mkCheck(cd: CheckData[A]) =
-    new PlottedCheck[A, P, M, V](cd, sconf, estimationShape)
+    new PlottedCheck[A, P, M, V, C](cd, sconf, estimationShape)
 }

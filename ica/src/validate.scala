@@ -14,11 +14,11 @@ extends Predictor[ICA, ICA, Double]
 case class ICAValidator[S: Sample]
 (data: Nel[S], config: ICALearnConf)
 (implicit mc: MC[S])
-extends Validator[S, ICA, Double]
+extends Validator[ICA]
 {
   lazy val predict = ICAPredictor(config)
 
-  def verify(model: ICA)(sample: S): SampleValidation[S, Double] = {
+  def verify(model: ICA)(sample: S): SampleValidation = {
     val pred = predict(sample, model)
     DSV(sample, pred.value)
   }
@@ -28,7 +28,3 @@ extends Validator[S, ICA, Double]
     Val(pred)
   }
 }
-
-case class ICAModelSelectionValidator[S, P]
-(cross: CrossValidator[S, ICA, ICA, Double], cost: Func2)
-extends MSV[S, ICA, ICA, Double]

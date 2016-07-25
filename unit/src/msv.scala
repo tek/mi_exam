@@ -5,7 +5,7 @@ trait MSVSpecBase[S, P, M, V]
 extends tryp.SpecCommon
 with mi.Matchers
 {
-  type MSV0 = MSV[S, P, M, V]
+  type MSV0 = MSV[S, P]
 
   def msvError(msv: MSV0) = {
     msv.validation.map { _.map { v =>
@@ -23,14 +23,15 @@ with mi.Matchers
 
   def folds = 10
 
-  val sconf = ModelSelectionConf.default(
+  implicit val sconf = MSConf.default(
     epsilon = epsilon,
     trials = trials,
     folds = folds,
   )
 }
 
-trait MSVSpec[S, P, M, V]
+abstract class MSVSpec[S: Sample, P, M, V, C]
+(implicit cm: CreateMSV[S, P, M, C])
 extends Spec
 with MSVSpecBase[S, P, M, V]
 {
@@ -42,9 +43,17 @@ with MSVSpecBase[S, P, M, V]
 
   def title: String
 
-  val msv: MSV0
+  implicit def conf: C
+
+  def data: Nel[S]
+
+  lazy val msv: MSV0 = MSV.create(data)
 
   def margin = foldMargin * (trials | sconf.folds)
 
   val foldMargin = 1e-1d
 }
+
+abstract class SimpleMSVSpec[S: Sample, P, C]
+(implicit cm: CreateMSV[S, P, P, C])
+extends MSVSpec[S, P, P, Double, C]

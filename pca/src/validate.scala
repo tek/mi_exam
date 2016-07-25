@@ -14,11 +14,11 @@ extends Predictor[PCA, PCA, Double]
 case class PCAValidator[S: Sample]
 (data: Nel[S], config: PCALearnConf)
 (implicit mc: MC[S])
-extends Validator[S, PCA, Double]
+extends Validator[PCA]
 {
   lazy val predict = PCAPredictor(config)
 
-  def verify(model: PCA)(sample: S): SampleValidation[S, Double] = {
+  def verify(model: PCA)(sample: S): SampleValidation = {
     val pred = predict(sample, model)
     DSV(sample, pred.value)
   }
@@ -28,7 +28,3 @@ extends Validator[S, PCA, Double]
     Val(pred)
   }
 }
-
-case class PCAModelSelectionValidator[S, P]
-(cross: CrossValidator[S, PCA, PCA, Double], cost: Func2)
-extends MSV[S, PCA, PCA, Double]

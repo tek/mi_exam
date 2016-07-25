@@ -17,10 +17,10 @@ extends MSVSpecBase[A, P, M, V]
     FigureConf.default("mi", width = 1000, height = 1000,
       shape = estimationShape)
 
-  def mkPms(msv: MSV0)(implicit plotBE: Viz[JFree, A, P]) = 
+  def mkPms(msv: MSV0)(implicit plotBE: Viz[JFree, A, P]) =
       PlottedModelSelection[A, JFree, P, M, V](msv, stepInterval)
 
-  def validationError(pm: ModelSelectionValidation[A, P, V]) = {
+  def validationError(pm: MSVData) = {
     pm.printer.short()
     pm.foldError
   }
@@ -32,9 +32,10 @@ extends MSVSpecBase[A, P, M, V]
     error(pms) computes beValid(be_<=(margin))
 }
 
-abstract class PlottedSpecBase[A: Sample, P: ParamVizData, M, V]
+abstract class PlottedSpecBase[S: Sample, P: ParamVizData, M, V, C]
+(implicit cm: CreateMSV[S, P, M, C])
 extends Spec
-with PlottedSpecHelpers[A, P, M, V]
+with PlottedSpecHelpers[S, P, M, V]
 {
   override def is = s2"""
   $title
@@ -44,7 +45,11 @@ with PlottedSpecHelpers[A, P, M, V]
 
   def title: String
 
-  def msv: MSV0
+  implicit def conf: C
+
+  def data: Nel[S]
+
+  lazy val msv: MSV0 = MSV.create(data)
 
   def margin = foldMargin * (trials | sconf.folds)
 
@@ -56,8 +61,9 @@ with PlottedSpecHelpers[A, P, M, V]
     error(pms) computes beValid(be_<=(margin))
 }
 
-abstract class PlottedIrisSpecBase[P: ParamVizData: JParam, M, V]
-extends PlottedSpecBase[Iris, P, M, V]
+abstract class PlottedIrisSpecBase[P: ParamVizData: JParam, M, V, C]
+(implicit cm: CreateMSV[Iris, P, M, C])
+extends PlottedSpecBase[Iris, P, M, V, C]
 {
   implicit override def fconf = super.fconf
 

@@ -27,12 +27,22 @@ case class PCA(basis: List[Col], µ: Col, λ: List[Double])
 
 object PCA
 {
-  def msv[S: Sample]
-  (data: Nel[S], conf: PCALearnConf, sconf: ModelSelectionConf)
-  (implicit mc: MC[S]) = {
-    lazy val validator = CrossValidator[S, PCA, PCA, Double](data,
-      sconf, PCAEstimator[S](_, conf), _ => IdModelCreator[PCA](),
-      PCAValidator[S](_, conf))
-    PCAModelSelectionValidator(validator, conf.cost)
-  }
+  implicit def instance_CreateEstimator_PCA[S: Sample: MC]
+  : CreateEstimator[S, PCA, PCALearnConf] =
+    new CreateEstimator[S, PCA, PCALearnConf] {
+      def apply(data: Nel[S])
+      (implicit conf: PCALearnConf, sconf: MSConf)
+      : Estimator[PCA] = PCAEstimator(data, conf)
+    }
+
+  implicit def instance_CreateModelCreator_PCA[S] =
+    CreateModelCreator.id[S, PCA, PCALearnConf]
+
+  implicit def instance_CreateValidator_PCA[S: Sample: MC]
+  : CreateValidator[S, PCA, PCALearnConf] =
+    new CreateValidator[S, PCA, PCALearnConf] {
+      def apply(data: Nel[S])
+      (implicit conf: PCALearnConf, sconf: MSConf)
+      : Validator[PCA] = PCAValidator(data, conf)
+    }
 }

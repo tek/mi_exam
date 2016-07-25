@@ -18,13 +18,22 @@ case class ICA(unmix: Mat)
 
 object ICA
 {
-  def msv[S: Sample]
-  (data: Nel[S], conf: ICALearnConf, sconf: ModelSelectionConf)
-  (implicit mc: MC[S])  
-  = {
-    lazy val validator = CrossValidator[S, ICA, ICA, Double](data,
-      sconf, ICAEstimator[S](_, conf), _ => IdModelCreator[ICA](),
-      ICAValidator[S](_, conf))
-    ICAModelSelectionValidator(validator, conf.cost)
-  }
+  implicit def instance_CreateEstimator_ICA[S: Sample: MC]
+  : CreateEstimator[S, ICA, ICALearnConf] =
+    new CreateEstimator[S, ICA, ICALearnConf] {
+      def apply(data: Nel[S])
+      (implicit conf: ICALearnConf, sconf: MSConf)
+      : Estimator[ICA] = ICAEstimator(data, conf)
+    }
+
+  implicit def instance_CreateModelCreator_ICA[S] =
+    CreateModelCreator.id[S, ICA, ICALearnConf]
+
+  implicit def instance_CreateValidator_ICA[S: Sample: MC]
+  : CreateValidator[S, ICA, ICALearnConf] =
+    new CreateValidator[S, ICA, ICALearnConf] {
+      def apply(data: Nel[S])
+      (implicit conf: ICALearnConf, sconf: MSConf)
+      : Validator[ICA] = ICAValidator(data, conf)
+    }
 }

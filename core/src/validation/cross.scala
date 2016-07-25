@@ -20,25 +20,23 @@ object ModelSelection
 
 import ModelSelection._
 
-case class ModelSelection[P]
-(estimation: Est[P], validation: Validation)
-
-case class ModelTrainInfo[P]
-(model: ModelSelection[P], stats: EstimationStats)
-
-trait ModelSelector[S, P]
+trait ModelSelection
 {
-  type R = Result[S, P]
-  def config: ModelSelectionConf
-
-  def data: Nel[S]
-
-  def result: R
-
-  def validatedCount: Int
+  def estimation: Estimation
+  def validation: Validation
 }
 
+case class MS[P]
+(estimation: Est[P], validation: Validation)
+extends ModelSelection
+
+case class ModelTrainInfo
+(model: ModelSelection, stats: EstimationStats)
+
+sealed trait LearnBase
+
 sealed trait Learn[S, P]
+extends LearnBase
 
 object Learn
 {
@@ -51,22 +49,27 @@ object Learn
   case class Step[S, P](estimation: Est[P])
   extends Learn[S, P]
 
-  case class Result[S, P](model: ModelSelection[P])
+  case class Result[S, P](model: ModelSelection)
   extends Learn[S, P]
 
   case class Done[S, P]()
   extends Learn[S, P]
-
-//   case class Error[A, P, O](msg: String)
-//   extends Learn[A, P, O]
 }
 
-case class CrossValidator[S, P, M, V](data: Nel[S],
-  config: ModelSelectionConf, estimator: Nel[S] => Estimator[P],
+trait CrossValidatorI[S, P]
+{
+  type R = Result[S, P]
+  def result: R
+  def config: MSConf
+  def validatedCount: Int
+}
+
+case class CrossValidator[S, P, M](data: Nel[S],
+  config: MSConf, estimator: Nel[S] => Estimator[P],
   modelCreator: Nel[S] => ModelCreator[P, M],
-  validator: Nel[S] => Validator[S, M, V])
+  validator: Nel[S] => Validator[M])
 (implicit mt: ModelTypes[M])
-extends ModelSelector[S, P]
+extends CrossValidatorI[S, P]
 {
   def result: R =
     intervals.map(interval).flatSequence
@@ -123,21 +126,21 @@ extends ModelSelector[S, P]
           // case Invalid(err) => log.error(s"model selection failed: $err")
           case Right(v) => v map { e =>
             val model = modelCreator(trainData).run(e)
-            Learn.Result(ModelSelection(e, validator(testData).run(model)))
+            Learn.Result(MS(e, validator(testData).run(model)))
           }
         }
   }
 }
 
-case class ModelSelectionValidation[S, P, V]
-(results: Nel[ModelSelection[P]], stats: Nel[EstimationStats],
- config: ModelSelectionConf, totalCount: Int)
+case class MSVData
+(results: Nel[ModelSelection], stats: Nel[EstimationStats],
+ config: MSConf, totalCount: Int)
 {
   lazy val totalError = stats.map(_.totalError).toList.sum
 
   lazy val foldError = totalError / results.length
 
-  def info: Nel[ModelTrainInfo[P]] =
+  def info: Nel[ModelTrainInfo] =
     results.fzip(stats).map { case (a, b) => ModelTrainInfo(a, b) }
 
   def successes = stats.map(_.successes).toList.sum
@@ -145,8 +148,8 @@ case class ModelSelectionValidation[S, P, V]
   def printer = MSPrinter(this, config, totalCount)
 }
 
-case class MSPrinter(validation: ModelSelectionValidation[_, _, _],
-  config: ModelSelectionConf, totalCount: Int)
+case class MSPrinter(validation: MSVData, config: MSConf,
+  totalCount: Int)
 extends Logging
 {
   override def loggerName = List("ms")
@@ -155,8 +158,9 @@ extends Logging
 
   def verbose() = all(true)
 
-  def fold(info: ModelTrainInfo[_], verbose: Boolean) = {
-    val ModelSelection(Est(iter, _), Val(data)) = info.model
+  def fold(info: ModelTrainInfo, verbose: Boolean) = {
+    val iter = info.model.estimation.iterations
+    val data = info.model.validation.data
     val stats = info.stats
     log.info("")
     if (iter == config.steps) log.info("training hasn't converged")
@@ -183,19 +187,19 @@ extends Logging
 }
 
 trait MSVI
+{
+  def config: MSConf
 
-trait MSV[S, P, M, V]
+  def totalCount: Int
+
+  def cost = config.cost
+}
+
+case class MSV[S, P](cross: CrossValidatorI[S, P])
 extends MSVI
 with Logging
 {
-  private[this] type E = Est[P]
-  private[this] type MS = ModelSelection[P]
-
   override def loggerName = List("msv")
-
-  val cross: ModelSelector[S, P]
-
-  val cost: Func2
 
   def config = cross.config
 
@@ -206,7 +210,7 @@ with Logging
   def unified: Result[S, P] =
     result ++ Stream.emit(Learn.Done().valid)
 
-  def model: Stream[Task, String ValidatedNel MS] =
+  def model =
     unified
       .collect {
         case i @ Invalid(_) => i
@@ -221,9 +225,8 @@ with Logging
 
 object MSV
 {
-  def validation[S, P, M, V](msv: MSV[S, P, M, V],
-    in: Stream[Task, String ValidatedNel ModelSelection[P]])
-  : Stream[Task, String ValidatedNel ModelSelectionValidation[S, P, V]] = {
+  def validation(msv: MSVI, in: Stream[Task, Vali[ModelSelection]])
+  : Stream[Task, String ValidatedNel MSVData] = {
     Stream.eval(in.runLog)
       .map(_.toList.sequenceU)
       .map {
@@ -234,11 +237,66 @@ object MSV
         case Valid(r) =>
           r.map(_.validation.stats(msv.cost)).sequenceU match {
             case Valid(s) =>
-              Valid(ModelSelectionValidation(r, s, msv.config, msv.totalCount))
+              Valid(MSVData(r, s, msv.config, msv.totalCount))
             case Invalid(a) => Invalid(a)
           }
         case Invalid(a) => Invalid(a)
       }
   }
 
+  def create[S: Sample, P, M, C](data: Nel[S])
+  (implicit cm: CreateMSV[S, P, M, C], conf: C, sconf: MSConf)
+  : MSV[S, P] =
+  {
+    val cross = 
+      CrossValidator[S, P, M](data, sconf, cm.estimator.apply,
+        cm.modelCreator.apply, cm.validator.apply)
+    MSV(cross)
+  }
+}
+
+trait CreateEstimator[S, P, C]
+{
+  def apply(data: Nel[S])
+  (implicit conf: C, sconf: MSConf): Estimator[P]
+}
+
+trait CreateModelCreator[S, P, M, C]
+{
+  def apply(data: Nel[S])
+  (implicit conf: C, sconf: MSConf): ModelCreator[P, M]
+}
+
+object CreateModelCreator
+{
+  def id[S, P, C] =
+    new CreateModelCreator[S, P, P, C] {
+      def apply(data: Nel[S])(implicit conf: C, sconf: MSConf) =
+        IdModelCreator[P]()
+    }
+}
+
+trait CreateValidator[S, M, C]
+{
+  def apply(data: Nel[S])
+  (implicit conf: C, sconf: MSConf): Validator[M]
+}
+
+trait CreateMSV[S, P, M, C]
+{
+  def estimator: CreateEstimator[S, P, C]
+  def modelCreator: CreateModelCreator[S, P, M, C]
+  def validator: CreateValidator[S, M, C]
+}
+
+object CreateMSV
+{
+  implicit def createMSV[S, P, M, C]
+  (implicit est: CreateEstimator[S, P, C], mod: CreateModelCreator[S, P, M, C],
+    vali: CreateValidator[S, M, C]): CreateMSV[S, P, M, C] =
+      new CreateMSV[S, P, M, C] {
+        def estimator = est
+        def modelCreator = mod
+        def validator = vali
+      }
 }

@@ -5,6 +5,8 @@ package rbf
 import org.scalacheck._
 import org.scalacheck.util.Buildable
 
+import RBF._
+
 case class RBFData(rank: Int, classes: Nel[ClassCluster[_]])
 
 object RBFGen
@@ -32,6 +34,10 @@ extends RBFDataInstances
 
 trait RBFDataInstances
 {
+  type P = RBFs[GaussBF]
+  type M = RBFNet[GaussBF]
+  type C = RBFLearnConf[GaussBF]
+
   implicit lazy val instance_GenData_RBFData: GenData[RBFData] =
     new GenData[RBFData] {
       def rank(a: RBFData) = a.rank
@@ -44,19 +50,15 @@ trait RBFDataInstances
     }
 
   implicit lazy val instance_MSVGen_RBFData
-  : MSVGen[RBFData, RBFs[GaussBF], RBFs[GaussBF], Double] =
-      new MSVGen[RBFData, RBFs[GaussBF], RBFs[GaussBF], Double] {
+  : MSVGen[RBFData, P, M, Double, C] =
+      new MSVGen[RBFData, P, M, Double, C] {
+        def createMSV(implicit s: Sample[Data], mc: MC[Data]) = imp.imp
+
         def margin(cd: CheckData[RBFData]) =
           1e-5d
 
-        def msv(cd: CheckData[RBFData])
-        (sconf: ModelSelectionConf)
-        (implicit mc: ModelClasses[Data, Double], s: Sample[Data])
-        = {
-          val lconf =
-            RBFLearnConf.default[GaussBF, Data](
-              rbfs = cd.classes.length, eta = 1d)
-          RBF.msv(cd.data.shuffle, lconf, sconf)
-        }
+        def lconf(cd: CheckData[RBFData])(implicit s: Sample[Data]) =
+          RBFLearnConf.default[GaussBF, Data](
+            rbfs = cd.classes.length, eta = 1d)
       }
 }

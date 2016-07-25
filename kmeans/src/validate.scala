@@ -24,11 +24,11 @@ case class KMeansPredictor(config: KMeansLearnConf)
 case class KMeansValidator[S: Sample]
 (data: Nel[S], config: KMeansLearnConf)
 (implicit mc: MC[S])
-extends Validator[S, KMeans, Col]
+extends Validator[KMeans]
 {
   lazy val predict = KMeansPredictor(config)
 
-  def verify(model: KMeans)(sample: S): SampleValidation[S, Col] = {
+  def verify(model: KMeans)(sample: S): SV[S, Col] = {
     val pred = predict(sample, model)
     ColSV(sample, pred.value)
   }
@@ -37,7 +37,3 @@ extends Validator[S, KMeans, Col]
     Val(data map verify(model))
   }
 }
-
-case class KMeansModelSelectionValidator[S]
-(cross: CrossValidator[S, KMeans, KMeans, Col], cost: Func2)
-extends MSV[S, KMeans, KMeans, Col]

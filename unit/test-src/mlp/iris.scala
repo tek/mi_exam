@@ -3,10 +3,11 @@ package mi
 package mlp
 package unit
 
+import MLP._
+
 class IrisSpec
-extends Spec
+extends MSVSpec[Iris, Weights, MLP, Double, MLPLearnConf]
 with IrisSpecBase[Weights, MLP, Double]
-with MSVSpec[Iris, Weights, MLP, Double]
 {
   def title = "Multilayer Perceptron"
 
@@ -30,9 +31,7 @@ with MSVSpec[Iris, Weights, MLP, Double]
 
   lazy val transfer = new Logistic(beta)
 
-  lazy val msv: MSV = MLP.msv(data, conf, sconf)
-
-  lazy val conf =
+  implicit lazy val conf =
     MLPLearnConf.default(transfer, eta, layers, RandomWeights, bias = bias,
       mode = LearnConf.Online)
 }

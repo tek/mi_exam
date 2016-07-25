@@ -48,7 +48,7 @@ extends tryp.Deps
     pulsar("unit-core")
   )
 
-  lazy val rand = ids(
+  lazy val rand = imp ++ ids(
     "org.specs2" %% "specs2-scalacheck" % specsV
   )
 

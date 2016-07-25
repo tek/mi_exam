@@ -8,7 +8,7 @@ import org.specs2.matcher.MatchResult
 import viz.Shape
 
 trait PCARandomSpecBase
-extends SimpleCheckSpec[PCAData, PCA]
+extends SimpleCheckSpec[PCAData, PCA, PCALearnConf]
 {
   val kernel: KernelFunc = LinearKernel
 }
@@ -32,7 +32,7 @@ extends LinearRandomSpec
 }
 
 class PlottedRandomSpec
-extends PlottedCheckSpec[PCAData, PCA, PCA, Double]
+extends PlottedCheckSpec[PCAData, PCA, PCA, Double, PCALearnConf]
 {
   val kernel: KernelFunc = LinearKernel
 

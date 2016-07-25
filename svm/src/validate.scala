@@ -16,11 +16,11 @@ extends Predictor[SVM, SVM, Double]
 case class SVMValidator[S: Sample]
 (data: Nel[S], config: SVMLearnConf)
 (implicit mc: MC[S])
-extends Validator[S, SVM, Double]
+extends Validator[SVM]
 {
   lazy val predict = SVMPredictor(config)
 
-  def verify(model: SVM)(sample: S): SampleValidation[S, Double] = {
+  def verify(model: SVM)(sample: S): SV[S, Double] = {
     val pred = predict(sample, model)
     DSV(sample, pred.value)
   }
@@ -28,7 +28,3 @@ extends Validator[S, SVM, Double]
   def run(model: SVM) =
     Val(data map(verify(model)))
 }
-
-case class SVMModelSelectionValidator[S, P]
-(cross: CrossValidator[S, SVM, SVM, Double], cost: Func2)
-extends MSV[S, SVM, SVM, Double]

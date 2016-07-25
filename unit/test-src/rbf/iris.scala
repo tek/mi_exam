@@ -5,8 +5,10 @@ package unit
 
 import viz._
 
+import RBF._
+
 trait IrisSpec
-extends IrisSpecBase[RBFs[GaussBF], RBFs[GaussBF], Double]
+extends IrisSpecBase[RBFs[GaussBF], RBFNet[GaussBF], Double]
 {
   def title = "Radial Basis Functions"
 
@@ -19,15 +21,14 @@ extends IrisSpecBase[RBFs[GaussBF], RBFs[GaussBF], Double]
   // override def trials = Some(1)
 
   lazy val conf = RBFLearnConf.default[GaussBF, Iris](rbfs, eta, lambda)
-
-  lazy val msv = RBF.msv(data, conf, sconf)
 }
 
 class NormalIrisSpec
-extends Spec
+extends MSVSpec[
+Iris, RBFs[GaussBF], RBFNet[GaussBF], Double, RBFLearnConf[GaussBF]]
 with IrisSpec
-with MSVSpec[Iris, RBFs[GaussBF], RBFs[GaussBF], Double]
 
 class PlottedIrisSpec
-extends PlottedIrisSpecBase[RBFs[GaussBF], RBFs[GaussBF], Double]
+extends PlottedIrisSpecBase[
+RBFs[GaussBF], RBFNet[GaussBF], Double, RBFLearnConf[GaussBF]]
 with IrisSpec

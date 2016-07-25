@@ -6,7 +6,7 @@ package unit
 trait KMeansRandomSpecBase
 
 class RandomSpec
-extends MSVCheckSpec[KMeansData, KMeans, KMeans, Col]
+extends MSVCheckSpec[KMeansData, KMeans, KMeans, Col, KMeansLearnConf]
 {
   override def numTests = 1
 
@@ -18,7 +18,7 @@ extends MSVCheckSpec[KMeansData, KMeans, KMeans, Col]
 }
 
 class PlottedRandomSpec
-extends PlottedCheckSpec[KMeansData, KMeans, KMeans, Col]
+extends PlottedCheckSpec[KMeansData, KMeans, KMeans, Col, KMeansLearnConf]
 {
   override def numTests = 1
 

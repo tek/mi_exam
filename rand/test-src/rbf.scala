@@ -9,8 +9,15 @@ import breeze.stats.distributions.MultivariateGaussian
 
 import org.specs2.scalacheck._
 
+object RBFTypes
+{
+  type BF = GaussBF
+}
+
+import RBFTypes._
+
 class RandomSpec
-extends SimpleCheckSpec[RBFData, RBFs[GaussBF]]
+extends MSVCheckSpec[RBFData, RBFs[BF], RBFNet[BF], Double, RBFLearnConf[BF]]
 {
   import GenBase._
 

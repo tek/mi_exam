@@ -59,17 +59,32 @@ object MLP
           .sum
     }
 
-  def msv[S: Sample]
-  (data: Nel[S], conf: MLPLearnConf, sconf: ModelSelectionConf)
-  (implicit mc: MC[S])
-  : MSV[S, Weights, MLP, Double] = {
-    val stop = ParamDiffStopCriterion[Weights](sconf.steps, sconf.epsilon)
-    lazy val validator =
-      CrossValidator[S, Weights, MLP, Double](data, sconf,
-        MLPEstimator[S](_, conf, stop), _ => MLPModelCreator(conf),
-        MLPValidator[S](_, conf))
-    MLPModelSelectionValidator(validator, conf.cost)
-  }
+  implicit def instance_CreateEstimator_MLP[S: Sample: MC]
+  : CreateEstimator[S, Weights, MLPLearnConf] =
+    new CreateEstimator[S, Weights, MLPLearnConf] {
+      def apply(data: Nel[S])
+      (implicit conf: MLPLearnConf, sconf: MSConf)
+      : Estimator[Weights] = {
+        val stop = ParamDiffStopCriterion[Weights](sconf.steps, sconf.epsilon)
+        MLPEstimator(data, conf, stop)
+      }
+    }
+
+  implicit def instance_CreateModelCreator_MLP[S] =
+    new CreateModelCreator[S, Weights, MLP, MLPLearnConf] {
+      def apply(data: Nel[S])
+      (implicit conf: MLPLearnConf, sconf: MSConf)
+      =
+        MLPModelCreator(conf)
+    }
+
+  implicit def instance_CreateValidator_MLP[S: Sample: MC]
+  : CreateValidator[S, MLP, MLPLearnConf] =
+    new CreateValidator[S, MLP, MLPLearnConf] {
+      def apply(data: Nel[S])
+      (implicit conf: MLPLearnConf, sconf: MSConf)
+      : Validator[MLP] = MLPValidator(data, conf)
+    }
 }
 
 trait WeightInitializer
@@ -257,7 +272,7 @@ extends UniformIterativeEstimator[Weights]
 
 case class MLPSV[S: Sample](data: S, state: MLP)
 (implicit mc: MC[S])
-extends SampleValidation[S, Double]
+extends SV[S, Double]
 {
   def output = state.output
 
@@ -269,11 +284,11 @@ extends SampleValidation[S, Double]
 case class MLPValidator[S: Sample]
 (data: Nel[S], config: MLPLearnConf)
 (implicit mc: MC[S])
-extends Validator[S, MLP, Double]
+extends Validator[MLP]
 {
   lazy val predict = MLPPredictor(config)
 
-  def verify(model: MLP)(sample: S): SampleValidation[S, Double] = {
+  def verify(model: MLP)(sample: S): SampleValidation = {
     val pred = predict(sample, model.weights)
     MLPSV(sample, pred.model)
   }
@@ -283,7 +298,3 @@ extends Validator[S, MLP, Double]
     Val(pred)
   }
 }
-
-case class MLPModelSelectionValidator[S]
-(cross: CrossValidator[S, Weights, MLP, Double], cost: Func2)
-extends MSV[S, Weights, MLP, Double]

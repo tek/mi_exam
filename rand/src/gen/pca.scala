@@ -8,6 +8,8 @@ import functions.euclideanDistance
 
 import org.scalacheck.Gen
 
+import PCA._
+
 case class Plane(normal: Col, bias: Double, pivot: Col)
 
 case class PCAData
@@ -66,17 +68,14 @@ trait PCADataInstances
     }
 
   implicit lazy val instance_MSVGen_PCAData
-  : MSVGen[PCAData, PCA, PCA, Double] =
-      new MSVGen[PCAData, PCA, PCA, Double] {
+  : MSVGen[PCAData, PCA, PCA, Double, PCALearnConf] =
+      new MSVGen[PCAData, PCA, PCA, Double, PCALearnConf] {
+        def createMSV(implicit s: Sample[Data], mc: MC[Data]) = imp.imp
+
         def margin(cd: CheckData[PCAData]) =
           0.2 * cd.conf.rank
 
-        def msv(cd: CheckData[PCAData])
-        (sconf: ModelSelectionConf)
-        (implicit mc: ModelClasses[Data, Double], s: Sample[Data])
-        = {
-          val lconf = PCALearnConf.default(kernel = cd.conf.kernel)
-          PCA.msv(cd.data.shuffle, lconf, sconf)
-        }
+        def lconf(cd: CheckData[PCAData])(implicit s: Sample[Data]) =
+          PCALearnConf.default(kernel = cd.conf.kernel)
       }
 }

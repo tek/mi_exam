@@ -5,6 +5,8 @@ package kmeans
 import org.scalacheck._
 import org.scalacheck.util.Buildable
 
+import KMeans._
+
 case class KMeansData(rank: Int, classes: Nel[ClassCluster[_]])
 
 object KMeansGen
@@ -44,18 +46,20 @@ trait KMeansDataInstances
     }
 
   implicit lazy val instance_MSVGen_KMeansData
-  : MSVGen[KMeansData, KMeans, KMeans, Col] =
-      new MSVGen[KMeansData, KMeans, KMeans, Col] {
+  : MSVGen[KMeansData, KMeans, KMeans, Col, KMeansLearnConf] =
+      new MSVGen[KMeansData, KMeans, KMeans, Col, KMeansLearnConf] {
         def margin(cd: CheckData[KMeansData]) =
           15d * cd.conf.rank * cd.genData.sampleRange
 
-        def msv(cd: CheckData[KMeansData])
-        (sconf: ModelSelectionConf)
-        (implicit mc: ModelClasses[Data, Col], s: Sample[Data])
-        = {
+        def lconf(cd: CheckData[KMeansData])(implicit s: Sample[Data]) =
+          KMeansLearnConf.default()
+
+        def createMSV(implicit s: Sample[Data], mc: MC[Data]) = imp.imp
+
+        override def sconf(cd: CheckData[KMeansData], sc: MSConf) =
+        {
           val epsilon = 1d * cd.conf.rank * cd.genData.sampleRange
-          val lconf = KMeansLearnConf.default()
-          KMeans.msv(cd.data.shuffle, lconf, sconf.copy(epsilon = epsilon))
+          sc.copy(epsilon = epsilon)
         }
       }
 }

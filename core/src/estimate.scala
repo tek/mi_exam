@@ -7,7 +7,13 @@ import Step._
 
 import annotation.tailrec
 
+trait Estimation
+{
+  def iterations: Long
+}
+
 case class Est[P](iterations: Long, params: P)
+extends Estimation
 
 trait EstimationStep[P]
 {

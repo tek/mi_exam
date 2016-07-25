@@ -81,19 +81,17 @@ object PlottedModelSelection
 }
 
 case class PMSCore[S, B, P, M, V]
-(msv: MSV[S, P, M, V], q: Queue[Task, Learn[S, P]],
+(msv: MSV[S, P], q: Queue[Task, Learn[S, P]],
   finished: Signal[Task, Boolean], stepInterval: FiniteDuration)
 (implicit backend: Viz[B, S, P])
 {
   import PlottedModelSelection._
 
-  type MS = ModelSelection[P]
-  type MSV = ModelSelectionValidation[S, P, V]
-  type Res = String ValidatedNel MSV
+  type Res = Vali[MSVData]
   type L = Learn[S, P]
 
-  lazy val results: Stream[Task, String ValidatedNel MS] = {
-    val em = Stream.empty[Task, String ValidatedNel MS]
+  lazy val results: Stream[Task, Vali[ModelSelection]] = {
+    val em = Stream.empty[Task, Vali[ModelSelection]]
     def send(t: Learn[S, P]) =
         Stream.eval(q.enqueue1(t)).flatMap(_ => em)
     msv.unified.flatMap {
@@ -139,14 +137,11 @@ case class PMSCore[S, B, P, M, V]
 }
 
 case class PlottedModelSelection[S, B, P, M, V]
-(msv: MSV[S, P, M, V],
+(msv: MSV[S, P],
   stepInterval: FiniteDuration = 100.millis)
 (implicit backend: Viz[B, S, P])
 {
   import PlottedModelSelection._
-
-  type MSV = ModelSelectionValidation[S, P, V]
-  type Res = String ValidatedNel MSV
 
   def queue = async.unboundedQueue[Task, Learn[S, P]]
 
@@ -158,6 +153,6 @@ case class PlottedModelSelection[S, B, P, M, V]
       f <- Stream.eval(finished)
     } yield PMSCore(msv, q, f, stepInterval)
 
-  def main: Stream[Task, Res] =
+  def main: Stream[Task, Vali[MSVData]] =
     core flatMap (_.main)
 }
