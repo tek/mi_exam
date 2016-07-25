@@ -121,8 +121,8 @@ trait MSVGen[A, P, M, V, C]
   def msv(cd: CheckData[A])(sc: MSConf)
   (implicit mc: ModelClasses[Data, V], s: Sample[Data])
   : MSV[Data, P] = {
-    implicit val lc = lconf(cd, sc)
     implicit val sc2 = sconf(cd, sc)
+    implicit val lc = lconf(cd, sc2)
     implicit val cm = createMSV
     MSV.create[Data, P, M, C](cd.data.shuffle)
   }
@@ -137,7 +137,7 @@ trait MSVGen[A, P, M, V, C]
 }
 
 class MSVCheck[A: GenData, P, M, V: DataModelClasses, C]
-(cd: CheckData[A], override val sconf: MSConf)
+(cd: CheckData[A], override implicit val sconf: MSConf)
 (implicit msv: MSVGen[A, P, M, V, C])
 extends Check[A](cd)
 with MSVSpecBase[Data, P, M, V]
@@ -162,8 +162,7 @@ abstract class SimpleCheckSpec[A: GenData, M, C]
 extends MSVCheckSpec[A, M, M, Double, C]
 
 class PlottedCheck[A: GenData, P: JParam, M, V: DataModelClasses, C]
-(cd: CheckData[A], sconf: MSConf,
-  override val estimationShape: Shape)
+(cd: CheckData[A], sconf: MSConf, override val estimationShape: Shape)
 (implicit msv: MSVGen[A, P, M, V, C])
 extends MSVCheck[A, P, M, V, C](cd, sconf)
 with viz.PlottedSpecHelpers[Data, P, M, V]

@@ -90,6 +90,8 @@ abstract class GenBase[A: GenData]
 
   def sampleRange: Double
 
+  def varianceRange: Double = domainRange / 2d
+
   def domainRange: Double
 
   def genSample(rank: Int) = GenBase.genSample(rank, sampleRange)

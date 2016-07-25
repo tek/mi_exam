@@ -30,17 +30,21 @@ object KMeansLearnConf
   }
 }
 
-case class KMeans(centers: List[Col], assignment: List[Mat])
+case class KMeans(centers: List[Col], assignment: List[Mat]
+  )
 {
   lazy val diffs = centers zip assignment map { case (a, b) => b(*, ::) - a }
 
-  lazy val variances = diffs map { cluster =>
-    cluster.rowCols.map(a => a dot a).sum / cluster.rows
-  }
+  lazy val variances = diffs map (_.rowCols) map KMeans.setVariance
+
+  def rank = centers.headOption map (_.length)
 }
 
 object KMeans
 {
+  def setVariance(set: List[Col]) =
+    set.map(a => a dot a).sum / set.length
+
   implicit def instance_CreateEstimator_KMeans[S: Sample: MC]
   : CreateEstimator[S, KMeans, KMeansLearnConf] =
     new CreateEstimator[S, KMeans, KMeansLearnConf] {
@@ -64,8 +68,13 @@ object KMeans
 
   implicit def instance_EmpiricalError_KMeans: EmpiricalError[KMeans] =
     new EmpiricalError[KMeans] {
-      def value(a: KMeans) = {
-        sum(a.variances) / a.variances.length
+      def calc(rank: Int, model: KMeans) = {
+        val count = model.variances.length
+        sum(model.variances) / (rank * count)
+      }
+
+      def value(model: KMeans) = {
+        (model.rank map (calc(_, model))) | pinf
       }
     }
 }

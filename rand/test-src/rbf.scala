@@ -21,7 +21,7 @@ extends MSVCheckSpec[RBFData, RBFs[BF], RBFNet[BF], Double, RBFLearnConf[BF]]
 {
   import GenBase._
 
-  override def epsilon = 1e-15d
+  override def epsilon0 = 1e-15d
 
   lazy val dataGen = RBFGen.rbf(5, 5, Range(folds * 5, folds * 10))
 

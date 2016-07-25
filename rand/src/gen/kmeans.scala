@@ -18,7 +18,7 @@ extends GenBase[KMeansData]
   def genClass(num: Int, rank: Int, members: Range) = for {
     memberCount <- choose(members.min, members.max)
     mean <- genData.genSample(rank)
-    covariance <- choose[Double](0.0001d, genData.domainRange)
+    covariance <- choose[Double](0.0001d, genData.varianceRange)
   } yield gaussCluster(num, rank, mean, covariance.left, memberCount)
 
   def kmeans(maxRank: Int, maxClasses: Int, members: Range) =
@@ -40,6 +40,8 @@ trait KMeansDataInstances
 
       def classes(a: KMeansData) = a.classes
 
+      override def varianceRange = 2d
+
       def sampleRange: Double = 10d
 
       def domainRange = 10d
@@ -59,7 +61,7 @@ trait KMeansDataInstances
 
         override def sconf(cd: CheckData[KMeansData], sc: MSConf) =
         {
-          val epsilon = 0.1d * cd.conf.rank * cd.genData.sampleRange
+          val epsilon = sc.epsilon0 * cd.conf.rank * cd.genData.sampleRange
           sc.copy(epsilon = epsilon)
         }
       }

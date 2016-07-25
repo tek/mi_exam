@@ -19,12 +19,12 @@ with mi.Matchers
 
   def trials: Option[Int] = None
 
-  def epsilon = 1e-2d
+  def epsilon0 = 1e-2d
 
   def folds = 10
 
   implicit val sconf = MSConf.default(
-    epsilon = epsilon,
+    epsilon0 = epsilon0,
     trials = trials,
     folds = folds,
   )
