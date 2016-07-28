@@ -15,7 +15,7 @@ with IrisSpecBase[Weights, MLP, Double]
 
   val layers = Nel(4)
 
-  override val epsilon = 1e-4d
+  override val epsilon0 = 1e-4d
 
   // transfer function slope
   def beta = 3.3d
