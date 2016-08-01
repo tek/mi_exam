@@ -17,7 +17,7 @@ extends Estimation
 
 trait EstimationStep[P]
 {
-  protected type I = String ValidatedNel P
+  protected type I = Vali[P]
 
   def apply(params: P): I
 }
