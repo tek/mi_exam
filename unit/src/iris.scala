@@ -47,13 +47,20 @@ extends IrisInstances
       .flatten
   }
 
-  def loadNel[V](implicit mc: ModelClasses[Iris, V]) = {
-    val targets = all.filter(a => mc.classes.contains(a.cls))
-    util.Random.shuffle(targets) match {
+  private[this] def toNel(data: Vector[Iris]) =
+    data match {
       case Vector(head, tail @ _*) => Nel(head, tail: _*)
       case _ => sys.error("no data")
     }
-  }
+
+  private[this] def forClasses[V](mc: ModelClasses[Iris, V]) =
+    all.filter(a => mc.classes.contains(a.cls))
+
+  def loadNel[V](implicit mc: ModelClasses[Iris, V]) =
+    toNel(forClasses(mc))
+
+  def loadNelRandom[V](implicit mc: ModelClasses[Iris, V]) =
+    toNel(util.Random.shuffle(forClasses(mc)))
 }
 
 trait IrisInstances

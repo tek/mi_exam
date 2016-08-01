@@ -23,7 +23,10 @@ with mi.Matchers
 
   def folds = 10
 
+  def steps = 10000
+
   implicit val sconf = MSConf.default(
+    steps = steps,
     epsilon0 = epsilon0,
     trials = trials,
     folds = folds,

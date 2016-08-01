@@ -25,13 +25,17 @@ with IrisSpecBase[Weights, MLP, Double]
 
   def bias = true
 
-  // def trials = Some(1)
+  // override def trials = 1.some
+
+  override def steps = 10
 
   override val foldMargin = 0.3d
 
   lazy val transfer = new Logistic(beta)
 
+  def learnMode = LearnConf.Batch
+
   implicit lazy val conf =
     MLPLearnConf.default(transfer, eta, layers, RandomWeights, bias = bias,
-      mode = LearnConf.Online)
+      learnMode = learnMode, gradientMode = MLPLearnConf.ConjugateGradient)
 }

@@ -39,6 +39,7 @@ with ToXorStreamOps
 with ToListStreamOps
 with TaskInstances
 with BreezeInstances
+with WeightsInstances
 {
   val pinf = Double.PositiveInfinity
 }

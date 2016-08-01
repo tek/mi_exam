@@ -50,9 +50,14 @@ object ModelTypes
 @tc abstract class Sample[S]
 {
   def cls(a: S): ModelClass[S]
+
   def feature(a: S): Col
+
   def range: Double = 1d
+
   def featureCount: Int
+
+  def rank(a: S) = feature(a).size
 }
 
 @tc trait ModelValue[A]

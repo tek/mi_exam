@@ -30,13 +30,15 @@ extends Spec
 {
   val sample: Dat
 
+  lazy val data = Nel(sample)
+
   val conf: MLPLearnConf
 
   def bias = false
 
   lazy val stop = StepCountStopCriterion[Weights](1)
 
-  lazy val train = MLPEstimator(Nel(sample), conf, stop)
+  lazy val train = MLPEstimator(data, conf, stop)
 
   val costFun = QuadraticError
 
@@ -44,35 +46,25 @@ extends Spec
 
   lazy val f1 = sample.feature(0)
 
-  lazy val pred = train.step.predict(sample, train.initialParams)
+  def predict = train.step.predict
 
-  def optimizer = train.step.optimize
+  lazy val pred = predict(sample, train.initialParams)
+
+  def optimize = train.step.optimize
 
   def forward = pred.model
 
-  lazy val backward = optimizer.backprop(forward)
+  lazy val backward = optimize.backprop(forward)
 
-  lazy val grad = optimizer.modelGradient(forward, backward)
+  lazy val grad = optimize.modelGradient(forward, backward)
 
   lazy val costError = costFun.deriv.f(pred.sample.valueOrNaN, forward.output)
 }
 
-class InternalTrivialSpec
+trait InternalTrivialSpecBase
 extends InternalBase
 {
-  def is = s2"""
-  input coord $input
-  output coord $output
-  back prop $backProp
-  gradient $gradient
-  complete gradient $gradientComplete
-  cost $cost
-  result $result
-  """
-
-  import Dat._
-
-  val layers = Nel(3)
+  val hidden = Nel(3)
 
   def eta = 0.7
 
@@ -84,7 +76,7 @@ extends InternalBase
 
   val h1_0 = x0 * w0_00
 
-  lazy val sample = Dat(Col(x0, 0d), Cls)
+  lazy val sample = Dat(Col(x0, 0d), Dat.Cls)
 
   def weights =
     new ManualWeights(Nel(
@@ -92,8 +84,27 @@ extends InternalBase
       Mat.create(1, 3, Array(1d, 0d, 0d))
     ))
 
+  def gradientMode: MLPLearnConf.GradientMode
+
   lazy val conf =
-    MLPLearnConf.default(transfer, eta, layers, weights, costFun, bias)
+    MLPLearnConf.default(transfer, eta, hidden, weights, costFun, bias,
+      gradientMode = gradientMode)
+}
+
+class InternalTrivialSpec
+extends InternalTrivialSpecBase
+{
+  def is = s2"""
+  input coord $input
+  output coord $output
+  back prop $backProp
+  gradient $gradient
+  complete gradient $gradientComplete
+  cost $cost
+  result $result
+  """
+
+  def gradientMode = MLPLearnConf.TrivialGradient
 
   def input = {
     forward.in must_== Nel(Col(x0, 0d), Col(h1_0, 0d, 0d), Col(h1_0))
@@ -114,7 +125,7 @@ extends InternalBase
   lazy val error = h1_0 - sample.valueOrNaN
 
   def gradientComplete = {
-    optimizer(pred).head(0, 0) must_== (grad.head(0, 0) * error)
+    optimize(pred).head(0, 0) must_== (grad.head(0, 0) * error)
   }
 
   def cost = {
@@ -145,7 +156,7 @@ extends InternalBase
 
   lazy val td = tr.deriv
 
-  val layers = Nel(3)
+  val hidden = Nel(3)
 
   def beta = 1d
 
@@ -170,7 +181,7 @@ extends InternalBase
     ))
 
   lazy val conf =
-    MLPLearnConf.default(tr, eta, layers, weights, costFun, bias)
+    MLPLearnConf.default(tr, eta, hidden, weights, costFun, bias)
 
   lazy val sample = Dat(Col(x0, 0d), Cls)
 
@@ -199,4 +210,31 @@ extends InternalBase
     val err = s2_0 - sample.valueOrNaN
     costError must beCloseTo(err, 0.001)
   }
+}
+
+class InternalCGSpec
+extends InternalTrivialSpecBase
+{
+  def is = s2"""
+  reshape weights $reshape
+  conjugate gradient $conjugate
+  """
+
+  def reshape = {
+    val hidden = Nel(3, 2)
+    val cf = conf.copy(hidden = hidden)
+    val cg = ConjugateGradientDescent(data, optimize, predict, cf)
+    val w =
+      Nel(Mat((1d, 0d), (2d, 0d), (0d, 3d)), Mat((4d, 0d, 0d), (0d, 5d, 0d)),
+        Mat((0d, 6d)))
+    cg.reshapeToWeights(cg.reshapeWeights(w)) must_== w
+  }
+
+  def conjugate = {
+    val cg = ConjugateGradientDescent(data, optimize, predict, conf)
+    cg(train.initialParams)
+    1 === 1
+  }
+
+  def gradientMode = MLPLearnConf.ConjugateGradient
 }
