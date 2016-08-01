@@ -87,7 +87,7 @@ extends InternalBase
   def gradientMode: MLPLearnConf.GradientMode
 
   lazy val conf =
-    MLPLearnConf.default(transfer, eta, hidden, weights, costFun, bias,
+    MLPLearnConf.default(2, transfer, eta, hidden, weights, costFun, bias,
       gradientMode = gradientMode)
 }
 
@@ -181,7 +181,7 @@ extends InternalBase
     ))
 
   lazy val conf =
-    MLPLearnConf.default(tr, eta, hidden, weights, costFun, bias)
+    MLPLearnConf.default(2, tr, eta, hidden, weights, costFun, bias)
 
   lazy val sample = Dat(Col(x0, 0d), Cls)
 
@@ -210,31 +210,4 @@ extends InternalBase
     val err = s2_0 - sample.valueOrNaN
     costError must beCloseTo(err, 0.001)
   }
-}
-
-class InternalCGSpec
-extends InternalTrivialSpecBase
-{
-  def is = s2"""
-  reshape weights $reshape
-  conjugate gradient $conjugate
-  """
-
-  def reshape = {
-    val hidden = Nel(3, 2)
-    val cf = conf.copy(hidden = hidden)
-    val cg = ConjugateGradientDescent(data, optimize, predict, cf)
-    val w =
-      Nel(Mat((1d, 0d), (2d, 0d), (0d, 3d)), Mat((4d, 0d, 0d), (0d, 5d, 0d)),
-        Mat((0d, 6d)))
-    cg.reshapeToWeights(cg.reshapeWeights(w)) must_== w
-  }
-
-  def conjugate = {
-    val cg = ConjugateGradientDescent(data, optimize, predict, conf)
-    cg(train.initialParams)
-    1 === 1
-  }
-
-  def gradientMode = MLPLearnConf.ConjugateGradient
 }

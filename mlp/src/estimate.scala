@@ -45,33 +45,18 @@ extends Optimizer[Weights, MLP, Double]
   }
 }
 
-abstract class GradientDescent[S: Sample]
-(implicit mc: MC[S])
+trait GradientDescent
 {
-  def data: Nel[S]
+  def gradient: Col => Col
 
-  def optimize: BackProp
-
-  def predict: MLPPredictor
-
-  def config: MLPLearnConf
-
-  def gradient(weights: Weights): Weights = {
-    val r: Nel[Weights] = data map (a => optimize(predict(a, weights)))
-    r.reduceLeft { (a, b) => a fzip b map { case (a, b) => a + b } }
-  }
-
-  def apply(weights: Weights): Vali[Weights]
+  def apply(weights: Col): Vali[Col]
 }
 
-case class TrivialGradientDescent[S: Sample](data: Nel[S], optimize: BackProp,
-  predict: MLPPredictor, config: MLPLearnConf)
-(implicit mc: MC[S])
-extends GradientDescent[S]
+case class TrivialGradientDescent(eta: Double, gradient: Col => Col)
+extends GradientDescent
 {
-  def apply(weights: Weights) = {
-    weights.apzip(gradient)
-      .map { case (a, b) => a :- (b * config.eta) }
+  def apply(w: Col) = {
+    (w + eta * gradient(w))
       .validNel[String]
   }
 }
@@ -90,7 +75,7 @@ object CGParams
     CGParams(1e-4d, 0d, 1e-2d, grad0, grad0, 0d, 0d, 0d, true, false)
 }
 
-case class CGPass(k: Int, w: Col, error: Col => Double, grad: Col => Col)
+case class CGPass(k: Int, w: Col, error: Col => Double, gradient: Col => Col)
 extends Logging
 {
   def n = w.size
@@ -98,7 +83,7 @@ extends Logging
   def secondOrder(params: CGParams) = {
     if (params.success) {
       val σk = params.σ / norm(params.p)
-      val s = grad(w + (params.σ * params.p)) - grad(w)
+      val s = gradient(w + (params.σ * params.p)) - gradient(w)
       val δ = params.p dot s
       params.copy(δ = δ)
     }
@@ -127,7 +112,7 @@ extends Logging
   }
 
   def descend(params: CGParams, next: Col, d: Double) = {
-    val r = -grad(next)
+    val r = -gradient(next)
     val done = (norm(r) < 1e-6) || (norm(w - next) < 1e-6)
     val λcon = 0d
     val beta =
@@ -163,16 +148,11 @@ extends Logging
   }
 }
 
-case class ConjugateGradientDescent[S: Sample](data: Nel[S],
-  optimize: BackProp, predict: MLPPredictor, config: MLPLearnConf)
-(implicit mc: MC[S])
-extends GradientDescent[S]
+case class ConjugateGradientDescent(error: Col => Double, gradient: Col => Col)
+extends GradientDescent
 {
-  lazy val validator = MLPValidator(data, config)
-
-  def apply(weights: Weights) = {
-    val w0 = reshapeWeights(weights)
-    val init = CGParams.init(-colGradient(w0))
+  def apply(w: Col) = {
+    val init = CGParams.init(-gradient(w))
     @tailrec
     def go(n: Int, k: Int, w: Col, par: CGParams): Col = {
       if (k > 1000 || n > 10000 || par.done) {
@@ -181,19 +161,41 @@ extends GradientDescent[S]
         w
       }
       else {
-        val pass = CGPass(k, w, error, colGradient)
+        val pass = CGPass(k, w, error, gradient)
         val (wn, parn) = pass.run(par)
         val k1 = if (parn.success) k + 1 else k
         go(n + 1, k1, wn, parn)
       }
     }
-    reshapeToWeights(go(0, 0, w0, init)).validNel[String]
+    go(0, 0, w, init).validNel[String]
   }
+}
+
+abstract class MLPStep[S: Sample]
+(implicit mc: MC[S])
+extends EstimationStep[Weights]
+{
+  val config: MLPLearnConf
+
+  val data: Nel[S]
+
+  val eta = config.eta / data.length
+
+  lazy val predict = MLPPredictor(config)
+
+  lazy val optimize = BackProp(config.transfer, config.cost)
+
+  lazy val validator = MLPValidator(data, config)
 
   def error(weights: Col): Double =
     validator.error(reshapeToWeights(weights)) getOrElse Double.NaN
 
-  def colGradient(weights: Col) =
+  def gradient(weights: Weights): Weights = {
+    val r: Nel[Weights] = data map (a => optimize(predict(a, weights)))
+    r.reduceLeft { (a, b) => a fzip b map { case (a, b) => a + b } }
+  }
+
+  def colGradient(weights: Col): Col =
     reshapeWeights(gradient(reshapeToWeights(weights)))
 
   def reshapeWeights(w: Weights): Col = {
@@ -218,27 +220,11 @@ extends GradientDescent[S]
     data._2.reverse
   }
 
-  def rank = data.head.rank
-
   lazy val counts =
-    config.inLayers(rank).reverse.reduceLeftTo(a => Nel((a, 1))) {
+    config.inLayers.reverse.reduceLeftTo(a => Nel((a, 1))) {
       case (z, a) =>
         OneAnd((a, z.head._1), z.unwrap)
     }
-}
-
-abstract class MLPStep[S: Sample]
-extends EstimationStep[Weights]
-{
-  val config: MLPLearnConf
-
-  val data: Nel[S]
-
-  val eta = config.eta / data.length
-
-  lazy val predict = MLPPredictor(config)
-
-  lazy val optimize = BackProp(config.transfer, config.cost)
 }
 
 // TODO parallel computing
@@ -247,7 +233,7 @@ case class BatchStep[S: Sample](data: Nel[S], config: MLPLearnConf)
 extends MLPStep
 {
   def apply(weights: Weights): I =
-    gradientDescent(weights)
+    gradientDescent(reshapeWeights(weights)) map reshapeToWeights
 
   lazy val gradientDescent =
     config.gradientMode match {
@@ -258,10 +244,10 @@ extends MLPStep
     }
 
   def trivialGradient =
-    TrivialGradientDescent(data, optimize, predict, config)
+    TrivialGradientDescent(config.eta, colGradient)
 
   def conjugateGradient =
-    ConjugateGradientDescent(data, optimize, predict, config)
+    ConjugateGradientDescent(error, colGradient)
 }
 
 case class OnlineStep[S: Sample](data: Nel[S], config: MLPLearnConf)
@@ -283,7 +269,7 @@ case class MLPEstimator[S: Sample]
 (implicit mc: MC[S])
 extends UniformIterativeEstimator[Weights]
 {
-  lazy val initialParams = config.initialParams(Sample[S].featureCount)
+  lazy val initialParams = config.initialParams
 
   lazy val step: MLPStep[S] = {
     config.learnMode match {

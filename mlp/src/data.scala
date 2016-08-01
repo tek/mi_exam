@@ -110,6 +110,7 @@ extends WeightInitializer
 }
 
 case class MLPLearnConf (
+  rank: Int,
   transfer: DFunc[_ <: Func],
   eta: Double,
   hidden: Nel[Int],
@@ -121,14 +122,13 @@ case class MLPLearnConf (
   output: Int
 )
 {
-  def in(rank: Int) = rank + (if (bias) 1 else 0)
+  def in = rank + (if (bias) 1 else 0)
 
-  def inLayers(rank: Int) = Nel(in(rank)).combine(hidden)
+  def inLayers = Nel(in).combine(hidden)
 
-  def layers(rank: Int) =
-    inLayers(rank).combine(Nel(output))
+  def layers = inLayers.combine(Nel(output))
 
-  def initialParams(rank: Int) = initializer(layers(rank))
+  def initialParams = initializer(layers)
 }
 
 object MLPLearnConf
@@ -136,6 +136,7 @@ object MLPLearnConf
   import LearnConf._
 
   def default(
+    rank: Int,
     transfer: DFunc[_ <: Func] = Logistic(0.5),
     eta: Double = 0.8,
     hidden: Nel[Int] = Nel(2),
@@ -146,8 +147,8 @@ object MLPLearnConf
     gradientMode: GradientMode = TrivialGradient,
     output: Int = 1
   ) =
-    MLPLearnConf(transfer, eta, hidden, initializer, cost, bias, learnMode,
-      gradientMode, output)
+    MLPLearnConf(rank, transfer, eta, hidden, initializer, cost, bias,
+      learnMode, gradientMode, output)
 
   sealed trait GradientMode
 
