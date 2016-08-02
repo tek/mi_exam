@@ -9,3 +9,4 @@ trait RBFTypes
 
 object `package`
 extends RBFTypes
+with BasisFunction.ToBasisFunctionOps

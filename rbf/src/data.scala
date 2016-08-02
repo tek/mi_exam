@@ -9,8 +9,6 @@ import linalg._
 import numerics._
 import functions.euclideanDistance
 
-import BasisFunction.ops._
-
 case class RBFs[P: BasisFunction](bf: Nev[P])
 {
   def centers = bf map(_.center)
@@ -74,4 +72,35 @@ object RBF
       : Validator[RBFNet[P]] =
         RBFValidator(data, conf)
     }
+}
+
+@tc abstract class UpdateParams[P: BasisFunction]
+extends AnyRef
+{
+  def updateCenter(index: Int, diff: Col): RBFs[P] => RBFs[P]
+
+  def updateParams(a: P)(all: Nev[P], lambda: Double): P
+}
+
+case class RBFLearnConf[P: BasisFunction](rbfs: Int,
+  eta: Double, lambda: Double, initialization: Initialization[P], cost: Func2)
+  {
+    lazy val bf = BasisFunction[P]
+
+    def initialParams(featureCount: Int) =
+      initialization.create(featureCount, rbfs)
+  }
+
+object RBFLearnConf
+{
+  def default[P: BasisFunction: Initializer, S: Sample](
+    rbfs: Int = 3,
+    eta: Double = 0.3,
+    lambda: Double = 2.0,
+    initialization: Option[Initialization[P]] = None,
+    cost: Func2 = QuadraticError
+  ) = {
+    val init = initialization | new RandomInitialization[P, S]
+    RBFLearnConf[P](rbfs, eta, lambda, init, cost)
+  }
 }
