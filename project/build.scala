@@ -2,6 +2,8 @@ package tryp
 
 import sbt._, Keys._
 
+import coursier.CoursierPlugin
+
 object Build
 extends MultiBuild("mi_exam", deps = MiDeps)
 {
@@ -9,7 +11,9 @@ extends MultiBuild("mi_exam", deps = MiDeps)
     "-Dcom.github.fommil.netlib.BLAS=com.github.fommil.netlib.NativeRefBLAS"
 
   override def defaultBuilder =
-    super.defaultBuilder(_).settingsV(javaOptions += blas, fork := true)
+    super.defaultBuilder(_)
+      .settingsV(javaOptions += blas, fork := true)
+      .map(_.disablePlugins(CoursierPlugin))
 
   lazy val core = "core".logback("tag" -> "mi")
 

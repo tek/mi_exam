@@ -3,7 +3,6 @@ package mi
 
 import fs2._
 import fs2.util._
-import Step._
 
 import annotation.tailrec
 

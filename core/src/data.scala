@@ -3,6 +3,7 @@ package mi
 
 import breeze._
 import linalg._
+import functions._
 
 trait ModelClass[S]
 {
@@ -78,7 +79,7 @@ object ModelValue
   implicit def instance_ModelValue_Col: ModelValue[Col] =
     new ModelValue[Col] {
       def nan = Col(Double.NaN)
-      def scalarDistance(a: Col, b: Col) = norm(a - b)
+      def scalarDistance(a: Col, b: Col) = euclideanDistance(a, b)
     }
 }
 

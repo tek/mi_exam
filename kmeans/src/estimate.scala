@@ -67,7 +67,7 @@ case class KMeansEstimator[S: Sample]
 (data: Nel[S], config: KMeansLearnConf, stop: StopCriterion[KMeans])
 extends IterativeEstimator[KMeans]
 {
-  lazy val cols = data.map(_.feature).unwrap
+  lazy val cols = data.map(_.feature).tail
 
   lazy val mat = Mat(cols: _*)
 

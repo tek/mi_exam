@@ -24,7 +24,7 @@ object DataModelClasses
         new ModelClasses[Data, Double] {
           lazy val classes = d.map(_.label: ModelClass[Data])
 
-          lazy val classMap = d.map(a => a.num -> a.label).unwrap.toMap
+          lazy val classMap = d.map(a => a.num -> a.label).tail.toMap
 
           def value(a: ModelClass[Data]) = a match {
             case DataClass(n) =>
@@ -41,7 +41,7 @@ object DataModelClasses
         new ModelClasses[Data, Col] {
           lazy val classes = d.map(_.label: ModelClass[Data])
 
-          lazy val classMap = d.map(a => a.num -> a.label).unwrap.toMap
+          lazy val classMap = d.map(a => a.num -> a.label).tail.toMap
 
           def value(a: ModelClass[Data]) = a match {
             case DataClass(n) =>

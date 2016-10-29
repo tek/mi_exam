@@ -50,7 +50,7 @@ object MLP
   implicit def instance_ParamDiff_Weights: ParamDiff[Weights] =
     new ParamDiff[Weights] {
       def diff(a: Weights, b: Weights) =
-        a.unwrap.zip(b.unwrap)
+        a.tail.zip(b.tail)
           .map { case (a, b) => sum(abs(a :- b)) / a.size }
           .sum
     }
@@ -83,6 +83,14 @@ object MLP
     }
 }
 
+object Weights
+{
+  sealed trait InitMode
+  case object Random extends InitMode
+  case class Manual(w: Weights) extends InitMode
+  case object Annealing extends InitMode
+}
+
 trait WeightInitializer
 {
   def apply(layers: Nel[Int]): Weights
@@ -93,7 +101,7 @@ extends WeightInitializer
 {
   def apply(layers: Nel[Int]): Weights =
     layers
-      .unwrap
+      .tail
       .sliding(2)
       .collect {
         case List(a, b) =>
@@ -103,10 +111,33 @@ extends WeightInitializer
       .nelOption | Nel(Mat.fill(1, 1)(1.0))
 }
 
-class ManualWeights(weights: Weights)
+case class ManualWeights(weights: Weights)
 extends WeightInitializer
 {
   def apply(layers: Nel[Int]): Weights = weights
+}
+
+case class AnnealedWeights[S: Sample]
+(estimator: MLPEstimator[S])
+(implicit mc: MC[S])
+extends WeightInitializer
+{
+  val k1 = 4
+
+  val k2 = 4
+
+  val k3 = 3
+
+  val a0 = 0
+
+  val a = 0.5
+
+  def apply(layers: Nel[Int]): Weights = {
+    val w: Weights = RandomWeights(layers)
+    val wm = Weights.Manual(w)
+    val est = estimator.copy(config = estimator.config.copy(initMode = wm))
+    w
+  }
 }
 
 case class MLPLearnConf (
@@ -114,9 +145,9 @@ case class MLPLearnConf (
   transfer: DFunc[_ <: Func],
   eta: Double,
   hidden: Nel[Int],
-  initializer: WeightInitializer,
   cost: DFunc2[_ <: Func2],
   bias: Boolean,
+  initMode: Weights.InitMode,
   learnMode: LearnConf.LearnMode,
   gradientMode: MLPLearnConf.GradientMode,
   output: Int
@@ -127,8 +158,6 @@ case class MLPLearnConf (
   def inLayers = Nel(in).combine(hidden)
 
   def layers = inLayers.combine(Nel(output))
-
-  def initialParams = initializer(layers)
 }
 
 object MLPLearnConf
@@ -140,14 +169,14 @@ object MLPLearnConf
     transfer: DFunc[_ <: Func] = Logistic(0.5),
     eta: Double = 0.8,
     hidden: Nel[Int] = Nel(2),
-    initializer: WeightInitializer = RandomWeights,
     cost: DFunc2[_ <: Func2] = QuadraticError,
     bias: Boolean = true,
+    initMode: Weights.InitMode = Weights.Random,
     learnMode: LearnMode = Batch,
     gradientMode: GradientMode = TrivialGradient,
     output: Int = 1
   ) =
-    MLPLearnConf(rank, transfer, eta, hidden, initializer, cost, bias,
+    MLPLearnConf(rank, transfer, eta, hidden, cost, bias, initMode,
       learnMode, gradientMode, output)
 
   sealed trait GradientMode

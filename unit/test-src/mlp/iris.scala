@@ -36,6 +36,7 @@ with IrisSpecBase[Weights, MLP, Double]
   def learnMode = LearnConf.Batch
 
   implicit lazy val conf =
-    MLPLearnConf.default(4, transfer, eta, layers, RandomWeights, bias = bias,
-      learnMode = learnMode, gradientMode = MLPLearnConf.ConjugateGradient)
+    MLPLearnConf.default(4, transfer, eta, layers,
+      bias = bias, learnMode = learnMode, initMode = Weights.Random,
+      gradientMode = MLPLearnConf.ConjugateGradient)
 }

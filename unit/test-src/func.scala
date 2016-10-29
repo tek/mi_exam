@@ -2,7 +2,7 @@ package tryp
 package mi
 package unit
 
-import cats._, data.{Func => _, _}, syntax.all._, std.all._
+import cats._, data.{Func => _, _}, syntax.all._, instances.all._
 
 import spire.math._
 import spire.algebra._

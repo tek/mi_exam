@@ -1,8 +1,10 @@
 package tryp
 package mi
 
+import cats.data.NonEmptyList
+
 import atto._, Atto._
-import atto.compat.cats._
+import atto.compat.NonEmptyListy
 
 import scalaz.stream._
 
@@ -19,6 +21,12 @@ extends IrisInstances
   object Versicolor extends AutoClass[Iris]
   object Virginica extends AutoClass[Iris]
 
+  implicit def instance_NonEmptyListy_Nel: NonEmptyListy[Nel] =
+    new NonEmptyListy[Nel] {
+      def cons[A](a: A, as: List[A]) = NonEmptyList(a, as)
+      def toList[A](a: Nel[A]) = a.toList
+    }
+
   val classes = Map(
     "setosa" -> Setosa,
     "versicolor" -> Versicolor,
@@ -29,7 +37,7 @@ extends IrisInstances
     import atto.parser._
     val feat = numeric.double <~ char(',')
     for {
-      f ← manyN(4, feat)
+      f ← manyN[Nel, Double](4, feat)
       _ ← string("Iris-")
       n ← takeText
       cls = classes.get(n)
@@ -54,7 +62,7 @@ extends IrisInstances
     }
 
   private[this] def forClasses[V](mc: ModelClasses[Iris, V]) =
-    all.filter(a => mc.classes.contains(a.cls))
+    all.filter(a => mc.classes.exists(_ == a.cls))
 
   def loadNel[V](implicit mc: ModelClasses[Iris, V]) =
     toNel(forClasses(mc))

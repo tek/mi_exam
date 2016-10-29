@@ -56,7 +56,7 @@ extends SV[S, Col]
 
 case class EstimationStats(successes: Int, errors: Nel[Double])
 {
-  def totalError = errors.unwrap.sum
+  def totalError = errors.tail.sum
 
   def success = (successes, count)
 

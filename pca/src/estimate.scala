@@ -40,7 +40,7 @@ extends SimpleEstimator[PCA]
 {
   lazy val n = data.length.toDouble
 
-  lazy val x = Mat(data.map(_.feature).unwrap: _*)
+  lazy val x = Mat(data.map(_.feature).tail: _*)
 
   lazy val µ = (sum(x(::, *)) / n).t
 

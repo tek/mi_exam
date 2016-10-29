@@ -1,8 +1,6 @@
 package tryp
 package mi
 
-import simulacrum._
-
 trait Params
 
 trait Config[C]

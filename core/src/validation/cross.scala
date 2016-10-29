@@ -3,8 +3,6 @@ package mi
 
 import fs2._
 import fs2.util._
-import Step._
-import Stream.Handle
 
 import cats.data.Xor._
 import cats.data.Validated._
@@ -82,7 +80,7 @@ extends CrossValidatorI[S, P]
 
   def validatedCount = config.trials map(_ * testSize) getOrElse(l.length)
 
-  private[this] lazy val l = data.unwrap
+  private[this] lazy val l = data.tail
 
   private[this] lazy val testSize = (l.length / config.folds).max(1)
 
@@ -111,8 +109,8 @@ extends CrossValidatorI[S, P]
     type In = String ValidatedNel Est[P]
     import Pull._
     type Out = In Xor In
-    def trans(z: Option[In]): Trans[In, Out] = receive1Option {
-      case Some(a #: h) =>
+    def trans(z: Option[In]): Trans[In, Out] = _.receive1Option {
+      case Some((a, h)) =>
         output1(a.left[In]) >> trans(Some(a))(h)
       case None => z match {
         case Some(e) => output1(e.right[In]) >> done

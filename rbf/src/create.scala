@@ -14,10 +14,10 @@ extends ModelCreator[RBFs[P], RBFNet[P]]
 
   def features = data map(_.feature)
 
-  lazy val targets = Col(data map(_.valueOrNaN) unwrap: _*)
+  lazy val targets = Col(data map(_.valueOrNaN) tail: _*)
 
   def weights(rbfs: RBFs[P]) = {
-    val out = features.map(predict.rbfOut(_, rbfs.bf).unwrap.toArray).unwrap
+    val out = features.map(predict.rbfOut(_, rbfs.bf).tail.toArray).tail
     val phi = Mat(out: _*)
     val trans = phi.t
     val leftCoeff = trans * phi

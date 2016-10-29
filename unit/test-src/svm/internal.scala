@@ -213,7 +213,7 @@ extends InternalBase
       val j = plot.init
       val t = for {
         _ <- plot.setup(j)
-        _ <- plot.fold(j)(data.unwrap, Nil)
+        _ <- plot.fold(j)(data.tail, Nil)
         _ <- plot.step(j)(svm)
       } yield ()
       t.unsafeRun

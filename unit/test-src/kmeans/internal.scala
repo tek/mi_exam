@@ -31,7 +31,7 @@ object Dat
 
       def predictedClass(a: Dat) = {
         val x = feature(a)
-        Dat.values.minBy { case (k, v) => norm(v - x) }
+        Dat.values.minBy { case (k, v) => euclideanDistance(v, x) }
       }
     }
 

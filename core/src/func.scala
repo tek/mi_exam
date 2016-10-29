@@ -5,8 +5,6 @@ import breeze.generic.{UFunc, MappingUFunc}
 import breeze.numerics._
 import breeze.linalg.support.{CanMapValues, ScalarOf}
 
-import simulacrum._
-
 import scalaz.Liskov.<~<
 
 trait FuncBase
@@ -118,7 +116,7 @@ extends DFunc2[Diff.type]
   def deriv = Diff
 }
 
-@typeclass trait ImplImp[A]
+@tc trait ImplImp[A]
 {
   def impl[B <: Func](b: B): UFunc.UImpl[B, A, A]
   def impl2[B <: Func2](b: B): UFunc.UImpl2[B, A, A, A]
@@ -159,7 +157,7 @@ object ImplImp
     }
 }
 
-@typeclass trait Fu[A]
+@tc trait Fu[A]
 {
   def f[B](a: A)(b: B)(implicit ev: A <~< Func, ii: ImplImp[B]) = {
     implicit val i = ii.impl(ev(a))
@@ -172,7 +170,7 @@ object Fu
   implicit def funcFu[A <: Func]: Fu[A] = new Fu[A] {}
 }
 
-@typeclass trait Fu2[A]
+@tc trait Fu2[A]
 {
   def f[B](a: A)(b: B, c: B)(implicit ev: A <~< Func2, ii: ImplImp[B]) = {
     implicit val i = ii.impl2(ev(a))

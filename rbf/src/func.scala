@@ -2,8 +2,6 @@ package tryp
 package mi
 package rbf
 
-import simulacrum._
-
 import scalaz.std.vector.{vectorInstance => zVectorInstance}
 import scalaz.syntax.zip._
 
@@ -25,13 +23,13 @@ import LearnConf._
 
 import BasisFunction.ops._
 
-@typeclass trait BasisFunction[P]
+@tc trait BasisFunction[P]
 {
   def center(p: P): Col
   def output(p: P)(input: Col): Double
 }
 
-@typeclass abstract class Initializer[P]
+@tc abstract class Initializer[P]
 extends AnyRef
 {
   def init[S: Sample](features: Int, rbfs: Int): RBFs[P]
@@ -96,7 +94,7 @@ trait GaussBFInstances
           case a if a != bf => euclideanDistance(bf.center, a.center)
           case _ => Double.MaxValue
         }
-        val newSigma = dist.unwrap.min * lambda
+        val newSigma = dist.tail.min * lambda
         (bf &|-> GaussBF.variance).set(newSigma)
       }
     }

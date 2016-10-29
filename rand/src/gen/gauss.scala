@@ -54,7 +54,7 @@ object RingCluster
     new ClusterGen[RingCluster] {
       def one(a: RingCluster) = {
         val x = a.gauss.dist.draw()
-        val dist = abs(norm(a.mean - x) - a.radius)
+        val dist = abs(euclideanDistance(a.mean, x) - a.radius)
         val good = dist < a.epsilon
         good -> x
       }
@@ -106,7 +106,7 @@ extends Sample[Data]
 {
   def data: Nel[ClassData]
 
-  lazy val classMap = data.map(a => a.num -> a.label).unwrap.toMap
+  lazy val classMap = data.map(a => a.num -> a.label).tail.toMap
 
   def cls(a: Data) = classMap.get(a.num).getOrElse(LabeledClass("invalid"))
 

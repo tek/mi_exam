@@ -3,8 +3,6 @@ package mi
 
 import breeze.linalg.{DenseVector, DenseMatrix, Transpose}
 
-import simulacrum._
-
 trait MITypes
 {
   type Mat = DenseMatrix[Double]
@@ -22,7 +20,7 @@ trait MITypes
 
 object `package`
 extends MITypes
-with cats.std.AllInstances
+with cats.instances.AllInstances
 with Fu.ToFuOps
 with Fu2.ToFu2Ops
 with Sample.ToSampleOps

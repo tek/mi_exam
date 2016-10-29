@@ -23,7 +23,7 @@ object RBFs
       def diff(a: RBFs[P], b: RBFs[P]): Double = {
         val dist = a.centers.fzip(b.centers)
           .map { case (a, b) => euclideanDistance(a, b) }
-          .unwrap
+          .tail
         sum(dist) / a.count
       }
     }

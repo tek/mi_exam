@@ -38,19 +38,19 @@ extends Spec
 
   lazy val stop = StepCountStopCriterion[Weights](1)
 
-  lazy val train = MLPEstimator(data, conf, stop)
+  lazy val est = MLPEstimator(data, conf, stop)
 
   val costFun = QuadraticError
 
-  lazy val initW = train.initialParams
+  lazy val initW = est.initialParams
 
   lazy val f1 = sample.feature(0)
 
-  def predict = train.step.predict
+  def predict = est.step.predict
 
-  lazy val pred = predict(sample, train.initialParams)
+  lazy val pred = predict(sample, est.initialParams)
 
-  def optimize = train.step.optimize
+  def optimize = est.step.optimize
 
   def forward = pred.model
 
@@ -78,16 +78,16 @@ extends InternalBase
 
   lazy val sample = Dat(Col(x0, 0d), Dat.Cls)
 
-  def weights =
-    new ManualWeights(Nel(
+  def weights: Weights.InitMode =
+    new Weights.Manual(Nel(
       Mat.create(3, 2, Array(w0_00, 0d, 0d, 0d, 0d, 0d)),
       Mat.create(1, 3, Array(1d, 0d, 0d))
     ))
 
-  def gradientMode: MLPLearnConf.GradientMode
+  def gradientMode: MLPLearnConf.GradientMode = MLPLearnConf.TrivialGradient
 
   lazy val conf =
-    MLPLearnConf.default(2, transfer, eta, hidden, weights, costFun, bias,
+    MLPLearnConf.default(2, transfer, eta, hidden, costFun, bias, weights,
       gradientMode = gradientMode)
 }
 
@@ -103,8 +103,6 @@ extends InternalTrivialSpecBase
   cost $cost
   result $result
   """
-
-  def gradientMode = MLPLearnConf.TrivialGradient
 
   def input = {
     forward.in must_== Nel(Col(x0, 0d), Col(h1_0, 0d, 0d), Col(h1_0))
@@ -133,7 +131,7 @@ extends InternalTrivialSpecBase
   }
 
   def result = {
-    val r = train.step(initW).getOrElse(sys.error("no result"))
+    val r = est.step(initW).getOrElse(sys.error("no result"))
     val d1 = h1_0 * h1_0 * f1
     r.head(0, 0) must beCloseTo((w0_00 - (eta * d1 * error)), 0.001)
   }
@@ -175,13 +173,13 @@ extends InternalBase
   val s2_0 = tr.f(s1_0)
 
   def weights =
-    new ManualWeights(Nel(
+    new Weights.Manual(Nel(
       Mat.create(3, 2, Array(w0_00, 0d, 0d, 0d, 0d, 0d)),
       Mat.create(1, 3, Array(1d, 0d, 0d))
     ))
 
   lazy val conf =
-    MLPLearnConf.default(2, tr, eta, hidden, weights, costFun, bias)
+    MLPLearnConf.default(2, tr, eta, hidden, costFun, bias, weights)
 
   lazy val sample = Dat(Col(x0, 0d), Cls)
 
@@ -209,5 +207,19 @@ extends InternalBase
   def cost = {
     val err = s2_0 - sample.valueOrNaN
     costError must beCloseTo(err, 0.001)
+  }
+}
+
+class AnnealedWeightsSpec
+extends InternalTrivialSpecBase
+{
+  def is = s2"""
+  run $run
+  """
+
+  override def weights = Weights.Annealing
+
+  def run = {
+    1 === 1
   }
 }

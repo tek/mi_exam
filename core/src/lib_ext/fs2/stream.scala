@@ -17,6 +17,10 @@ trait StreamInstances
         a flatMap f
 
       def combineK[A](fa: Stream[F, A], fb: Stream[F, A]) = fa ++ fb
+
+      def tailRecM[A, B](a: A)(f: A => Stream[F, Either[A, B]])
+      : Stream[F, B] =
+        defaultTailRecM(a)(f)
     }
 }
 

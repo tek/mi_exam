@@ -45,7 +45,7 @@ extends SimpleEstimator[SVM]
 {
   lazy val x = Mat(data.map(_.feature).toList: _*)
 
-  lazy val y = data.map(_.valueOrNaN).unwrap.toCol
+  lazy val y = data.map(_.valueOrNaN).tail.toCol
 
   lazy val rank = data.length
 

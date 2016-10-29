@@ -2,7 +2,7 @@ package tryp
 package mi
 package viz
 
-import fs2.util.Task
+import fs2.Task
 import fs2.Strategy
 
 import org.jfree.data.xy.DefaultXYZDataset

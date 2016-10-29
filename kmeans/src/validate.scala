@@ -6,6 +6,7 @@ import breeze._
 import numerics._
 import linalg._
 import util._
+import functions._
 
 case class KMeansPredictor(config: KMeansLearnConf)
 {
@@ -14,7 +15,7 @@ case class KMeansPredictor(config: KMeansLearnConf)
   : Prediction[S, KMeans, Col] = {
     val x = sample.feature
     val pred = model.centers.nelOption map {
-      _ minBy (a => norm(a - x))
+      _ minBy (euclideanDistance(_, x))
     }
     val c = pred getOrElse x
     Prediction(sample, model, c, mc.predictedClass(c))

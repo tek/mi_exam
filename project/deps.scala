@@ -30,8 +30,7 @@ extends tryp.Deps
     "org.scalanlp" %% "breeze-natives" % "0.+",
     "org.scalanlp" %% "breeze-viz" % "0.+",
     "org.spire-math" %% "spire" % "0.+",
-    "org.tpolecat" %% "atto-core" % "0.5.0-SNAPSHOT",
-    "org.tpolecat" %% "atto-compat-cats04" % "0.5.0-SNAPSHOT"
+    "org.tpolecat" %% "atto-core" % "0.+"
   ) ++ imp
 
   lazy val viz = testScoped ++ ids(

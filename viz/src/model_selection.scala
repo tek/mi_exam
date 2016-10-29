@@ -24,7 +24,7 @@ case class Plotter[S, B, P]
   }
 
   def fold(train: Nel[S], test: Nel[S]): Task[Plotter[S, B, P]] = {
-    backend.fold(plotData)(train.unwrap, test.unwrap)
+    backend.fold(plotData)(train.tail, test.tail)
       .map(a => Plotter(plotData, Some((train, test))))
   }
 
@@ -57,8 +57,8 @@ object PlottedModelSelection
     type P1 = P
     import Pull._
     import Learn._
-    receive1 {
-      case a #: h =>
+    _.receive1 {
+      case (a, h) =>
         val rec = plotLoop((_: Plotter[S, B, P1]), stepInterval)(h)
         a match {
           case Go() =>
@@ -114,8 +114,8 @@ case class PMSCore[S, B, P, M, V]
   def waitForCompletion(res: Either[Unit, Res])
   : Trans[Option[Either[Unit, Res]], Res] = {
     import Pull._
-    receive1 {
-      case a #: h =>
+    _.receive1 {
+      case (a, h) =>
         a match {
           case Some(SLeft(_)) => waitForCompletion(res)(h)
           case Some(r @ SRight(_)) => waitForCompletion(r)(h)
